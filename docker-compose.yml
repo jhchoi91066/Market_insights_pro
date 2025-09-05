@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14-alpine
+    container_name: market_insights_db
+    restart: always
+    environment:
+      - POSTGRES_DB=market_insights
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - market_insights_data:/var/lib/postgresql/data
+
+volumes:
+  market_insights_data:
