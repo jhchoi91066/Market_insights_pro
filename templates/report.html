@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Result: {{ report.keyword }}{% endblock %}
+
+{% block content %}
+<a href="/" class="btn btn-outline-secondary mb-4">← Analyze Another Keyword</a>
+
+<h1 class="mb-4">Market Analysis for '<strong>{{ report.keyword }}</strong>'</h1>
+
+<!-- 핵심 결과 카드 -->
+<div class="card text-center mb-4 shadow-sm">
+    <div class="card-header">
+        Market Entry Barrier Score
+    </div>
+    <div class="card-body highlight-card">
+        <p class="score">{{ report.difficulty_score }}/10</p>
+        <p class="card-text">Higher scores indicate fiercer competition and harder market entry.</p>
+    </div>
+</div>
+
+<!-- 세부 분석 결과 -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Competition Status</h5>
+                <p class="card-text fs-4">Total <strong>{{ report.competitor_count }}</strong> competing products{% if report.prime_count %}<br><small class="text-muted">Prime shipping: {{ report.prime_count }} ({{ report.prime_percentage }}%)</small>{% endif %}</p>
+                <small class="text-muted">Prime = Free shipping available on Amazon Prime</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Market Saturation</h5>
+                <p class="card-text fs-4">Top 10 products account for <strong>{{ report.market_saturation_percentage }}%</strong> of total sales</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        TOP 10 Products (By Sales Volume)
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for product in report.top_10_products %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ product.product_title }}
+            <span class="badge bg-primary rounded-pill">{{ product.purchased_last_month }}+/month{% if product.is_prime %} 📦Prime{% endif %}</span>
+        </li>
+        {% else %}
+        <li class="list-group-item">No product information available.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

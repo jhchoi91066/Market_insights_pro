@@ -2,3 +2,9 @@ pandas
 psycopg2-binary
 fastapi
 uvicorn[standard]
+playwright
+beautifulsoup4
+sqlalchemy
+alembic
+jinja2
+python-multipart

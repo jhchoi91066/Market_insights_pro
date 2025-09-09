@@ -1,210 +1,136 @@
 # -*- coding: utf-8 -*-
 """
-이 파일은 Market Insights Pro 프로젝트의 FastAPI 서버 메인 애플리케이션입니다.
+Amazon Market Insights Pro - FastAPI Main Application
+Provides web UI and API endpoints for Amazon market analysis.
 """
 from typing import List, Tuple
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Form
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 import os
 from functools import lru_cache
+import asyncio
+import traceback
+from datetime import datetime
 
-# 핵심 분석 엔진과 데이터베이스 연결 정보 불러오기
-from core.analyzer import MarketAnalyzer
-# from core.database import get_db_connection # 현재는 analyzer에서 직접 데이터 로드하므로 필요 없음
+# --- 로깅 헬퍼 함수 ---
+def log_to_file(message: str):
+    """디버깅 메시지를 파일에 기록합니다."""
+    with open("debug_log.txt", "a", encoding="utf-8") as f:
+        f.write(f"{datetime.now().isoformat()} - {message}\n")
+    print(message) # 콘솔에도 출력
+
+# 분석기 모듈은 시작 시 로드해도 안전합니다.
+from core.analyzer_v2 import SQLiteMarketAnalyzer
 
 app = FastAPI(
-    title="Market Insights Pro API",
-    description="AI 기반 이커머스 시장 분석 플랫폼 API",
-    version="0.1.0",
+    title="Amazon Market Insights Pro",
+    description="Amazon product market analysis and competition research tool",
+    version="1.0.0", # Amazon conversion complete
 )
 
-# MarketAnalyzer 인스턴스 초기화 (애플리케이션 시작 시 한 번만 로드)
-# 실제 서비스에서는 데이터베이스에서 데이터를 로드하도록 변경될 예정
-DATA_FILE_PATH = os.path.join(os.path.dirname(__file__), 'data', 'amazon_products_sales_data_cleaned.csv')
-market_analyzer = MarketAnalyzer(DATA_FILE_PATH)
+# --- v2 MVP 설정 ---
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# 분석기 인스턴스는 미리 생성
+sqlite_analyzer = SQLiteMarketAnalyzer()
+
+# --- 동시성 제어를 위한 글로벌 락 ---
+import asyncio
+scraping_lock = asyncio.Lock()  # 한 번에 하나의 스크래핑만 허용
 
 # -----------------------------------------------------------------------------
-# 1단계: 기본 엔드포인트 (Hello World)
+# MVP 웹 페이지 라우팅
 # -----------------------------------------------------------------------------
-@app.get("/")
-async def read_root():
-    return {"message": "Hello World! Market Insights Pro API is running."}
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, "title": "Amazon Market Insights Pro"})
 
-# -----------------------------------------------------------------------------
-# 2단계: API 엔드포인트 - 카테고리 경쟁 분석
-# -----------------------------------------------------------------------------
-
-# 2.1 데이터 모델 정의 (주문서 양식 만들기)
-class CategoryAnalysisRequest(BaseModel):
-    category: str = Field(..., example="Laptops", description="분석할 상품 카테고리")
-    price_range: Tuple[float, float] = Field((0.0, 10000.0), example=(200.0, 1000.0), description="분석할 가격 범위 (최소, 최대)")
-    num_bins: int = Field(5, ge=1, le=10, description="가격 구간을 나눌 개수 (1~10)")
-
-@app.post("/analyze/category")
-async def analyze_category(request: CategoryAnalysisRequest):
-    """
-    특정 카테고리의 경쟁 강도를 분석하고 결과를 반환합니다.
-    - 경쟁 제품 수
-    - 가격 구간별 평균 평점
-    - 판매량 기준 TOP 10 제품
-    - 진입 난이도 점수
-    """
-    if market_analyzer.df.empty:
-        raise HTTPException(status_code=500, detail="데이터 로드에 실패했습니다. 서버 로그를 확인하세요.")
-
+@app.post("/report", response_class=HTMLResponse)
+async def create_report(request: Request, keyword: str = Form(...)):
+    log_to_file(f"--- 보고서 생성 시작: '{keyword}' ---")
+    scraper = None # finally에서 사용하기 위해 미리 선언
     try:
-        results = market_analyzer.analyze_category_competition(
-            request.category,
-            request.price_range,
-            request.num_bins
-        )
-        return results
+        # --- 지연 로딩(Lazy Loading) 적용 ---
+        log_to_file("Scraper 모듈 로딩 시작")
+        from core.scraper import AmazonScraper
+        scraper = AmazonScraper()
+        log_to_file("Scraper 모듈 로딩 완료")
+
+        # English keywords don't require encoding handling
+
+        # --- 브라우저 실행 ---
+        log_to_file("브라우저 시작")
+        await scraper.start_browser()
+        log_to_file("브라우저 시작 완료")
+
+        # 1. 기존 데이터 확인
+        log_to_file("기존 데이터 확인 시작")
+        existing_count = 0
+        try:
+            existing_check = sqlite_analyzer.analyze_category_competition(keyword)
+            existing_count = existing_check.get('competitor_count', 0) if existing_check else 0
+        except Exception as e:
+            log_to_file(f"기존 데이터 확인 중 오류: {e}")
+        log_to_file(f"기존 데이터 {existing_count}개 확인")
+
+        # 2. 필요시 스크래핑 실행 (동시성 제어)
+        if existing_count < 30:  # 더 많은 데이터 수집을 위해 기준 상향
+            log_to_file("스크래핑 필요 - 작업 시작")
+            
+            # 동시성 제어: 한 번에 하나의 스크래핑만 허용
+            try:
+                # 락이 사용 중인지 확인 (논블로킹)
+                if scraping_lock.locked():
+                    log_to_file(f"⏰ 대기 중: 다른 분석이 진행 중입니다. '{keyword}' 대기열에 추가")
+                
+                async with scraping_lock:
+                    log_to_file(f"🔒 스크래핑 락 획득: '{keyword}' 작업 시작")
+                    db_result = await scraper.scrape_and_save_to_db(keyword, max_products=100)
+                    log_to_file(f"🔓 스크래핑 락 해제: '{keyword}' 작업 완료")
+            except Exception as lock_error:
+                log_to_file(f"❌ 락 처리 중 오류: {lock_error}")
+                raise lock_error
+            
+            log_to_file(f"스크래핑 작업 완료. 결과: {db_result.get('success')}")
+            if not db_result or not db_result.get('success'):
+                error_reason = db_result.get('message', 'Unknown scraping error') if db_result else 'Scraper did not respond'
+                log_to_file(f"Scraping failed: {error_reason}")
+                return templates.TemplateResponse("error.html", {
+                    "request": request,
+                    "error_message": f"Failed to collect data for '{keyword}' category",
+                    "error_reason": error_reason
+                })
+        else:
+            log_to_file("스크래핑 불필요 - 건너뜀")
+
+        # 3. 분석 실행
+        log_to_file("데이터 분석 시작")
+        competition_report = sqlite_analyzer.analyze_category_competition(keyword)
+        log_to_file("경쟁 분석 완료")
+        saturation_report = sqlite_analyzer.calculate_market_saturation(keyword)
+        log_to_file("시장 포화도 분석 완료")
+        report_data = {**competition_report, **saturation_report, 'keyword': keyword}
+
+        # 4. 결과 페이지 렌더링
+        log_to_file("결과 페이지 렌더링")
+        return templates.TemplateResponse("report.html", {"request": request, "report": report_data})
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"분석 중 오류 발생: {str(e)}")
-
-# -----------------------------------------------------------------------------
-# 3단계: API 엔드포인트 - 가격 공백 구간 탐색
-# -----------------------------------------------------------------------------
-class PriceGapAnalysisRequest(BaseModel):
-    category: str = Field(..., example="Phones", description="분석할 상품 카테고리")
-    bin_width: int = Field(100, ge=10, le=500, description="가격을 나눌 구간의 너비 (10~500)")
-
-@app.post("/analyze/price-gaps")
-async def analyze_price_gaps(request: PriceGapAnalysisRequest):
-    """
-    특정 카테고리 내에서 가격 공백 구간(기회 시장)을 탐색합니다.
-    - 가격대별 제품 분포
-    - 잠재적 가격 공백 구간 (제품 수가 적은 구간)
-    """
-    if market_analyzer.df.empty:
-        raise HTTPException(status_code=500, detail="데이터 로드에 실패했습니다. 서버 로그를 확인하세요.")
-
-    try:
-        results = market_analyzer.find_price_gaps(
-            request.category,
-            request.bin_width
-        )
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"분석 중 오류 발생: {str(e)}")
-
-# -----------------------------------------------------------------------------
-# 4단계: API 엔드포인트 - 성공 키워드 추출
-# -----------------------------------------------------------------------------
-class KeywordAnalysisRequest(BaseModel):
-    category: str = Field(..., example="Headphones", description="분석할 상품 카테고리")
-    rating_threshold: float = Field(4.5, ge=1.0, le=5.0, description="성공 기준으로 삼을 최소 평점")
-    reviews_threshold: int = Field(100, ge=0, description="성공 기준으로 삼을 최소 리뷰 수")
-    num_keywords: int = Field(20, ge=5, le=50, description="추출할 키워드 개수")
-
-@app.post("/analyze/keywords")
-async def analyze_keywords(request: KeywordAnalysisRequest):
-    """
-    성공적인 제품들(평점 및 리뷰 수가 높은)로부터 핵심 키워드를 추출합니다.
-    """
-    if market_analyzer.df.empty:
-        raise HTTPException(status_code=500, detail="데이터 로드에 실패했습니다. 서버 로그를 확인하세요.")
-
-    try:
-        results = market_analyzer.extract_success_keywords(
-            request.category,
-            request.rating_threshold,
-            request.reviews_threshold,
-            request.num_keywords
-        )
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"분석 중 오류 발생: {str(e)}")
-
-# -----------------------------------------------------------------------------
-# 5단계: API 엔드포인트 - 시장 포화도 계산
-# -----------------------------------------------------------------------------
-class SaturationAnalysisRequest(BaseModel):
-    category: str = Field(..., example="Printers & Scanners", description="분석할 상품 카테고리")
-
-@app.post("/analyze/saturation")
-async def analyze_saturation(request: SaturationAnalysisRequest):
-    """
-    특정 카테고리의 시장 포화도를 계산합니다.
-    (상위 10개 제품이 전체 판매량의 몇 %를 차지하는지로 측정)
-    """
-    if market_analyzer.df.empty:
-        raise HTTPException(status_code=500, detail="데이터 로드에 실패했습니다. 서버 로그를 확인하세요.")
-
-    try:
-        results = market_analyzer.calculate_market_saturation(
-            request.category
-        )
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"분석 중 오류 발생: {str(e)}")
-
-# -----------------------------------------------------------------------------
-# 6단계: API 엔드포인트 - 종합 분석 보고서 (캐싱 적용)
-# -----------------------------------------------------------------------------
-class FullReportRequest(BaseModel):
-    category: str = Field(..., example="Headphones", description="분석할 상품 카테고리")
-    price_range: Tuple[float, float] = Field((0.0, 5000.0), example=(50.0, 500.0), description="분석할 가격 범위 (최소, 최대)")
-    rating_threshold: float = Field(4.5, ge=1.0, le=5.0, description="성공 기준으로 삼을 최소 평점")
-    reviews_threshold: int = Field(100, ge=0, description="성공 기준으로 삼을 최소 리뷰 수")
-
-@lru_cache(maxsize=32)
-def _get_cached_full_report(category: str, price_range: tuple, rating_threshold: float, reviews_threshold: int):
-    """
-    실제 분석을 수행하고 결과를 캐싱하는 내부 함수.
-    lru_cache는 hashable한 인자만 받을 수 있으므로, 복잡한 Pydantic 모델 대신 기본 타입을 인자로 받습니다.
-    """
-    print(f"--- CACHE MISS: '{category}'에 대한 종합 분석을 새로 수행합니다. ---")
-    # 각 분석 모듈을 순차적으로 호출
-    competition_results = market_analyzer.analyze_category_competition(
-        category,
-        price_range
-    )
-    price_gap_results = market_analyzer.find_price_gaps(
-        category
-    )
-    keyword_results = market_analyzer.extract_success_keywords(
-        category,
-        rating_threshold,
-        reviews_threshold
-    )
-    saturation_results = market_analyzer.calculate_market_saturation(
-        category
-    )
-
-    # 모든 결과를 하나의 보고서로 취합
-    full_report = {
-        "report_title": f"'{category}' 카테고리 종합 분석 보고서",
-        "competition_analysis": competition_results,
-        "price_gap_analysis": price_gap_results,
-        "success_keyword_analysis": keyword_results,
-        "market_saturation_analysis": saturation_results
-    }
-    return full_report
-
-@app.post("/analyze/full-report")
-async def analyze_full_report(request: FullReportRequest):
-    """
-    한 번의 요청으로 특정 카테고리에 대한 모든 분석을 수행하고 종합 보고서를 반환합니다.
-    실제 계산은 캐시된 내부 함수를 호출하여 수행됩니다.
-    """
-    if market_analyzer.df.empty:
-        raise HTTPException(status_code=500, detail="데이터 로드에 실패했습니다. 서버 로그를 확인하세요.")
-
-    try:
-        # Pydantic 모델의 필드를 캐시된 도우미 함수로 전달
-        report = _get_cached_full_report(
-            category=request.category,
-            price_range=request.price_range,
-            rating_threshold=request.rating_threshold,
-            reviews_threshold=request.reviews_threshold
-        )
-        return report
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"종합 보고서 생성 중 오류 발생: {str(e)}")
-
-# 서버 실행 방법 (터미널에서):
-# uvicorn main:app --reload --host 0.0.0.0 --port 8000
-# --reload: 코드 변경 시 서버 자동 재시작
-# --host 0.0.0.0: 모든 IP에서 접속 허용 (Docker 컨테이너 내에서 필요)
-# --port 8000: 8000번 포트 사용
+        error_trace = traceback.format_exc()
+        log_to_file(f"!!! 치명적 오류 발생: {e}")
+        log_to_file(error_trace)
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": "An unexpected error occurred while generating the analysis report.",
+            "error_reason": str(e)
+        })
+    finally:
+        if scraper:
+            log_to_file("브라우저 종료 시작")
+            await scraper.close_browser()
+            log_to_file("브라우저 종료 완료")
+        log_to_file(f"--- 보고서 생성 종료: '{keyword}' ---")
