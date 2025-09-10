@@ -3,55 +3,262 @@
 {% block title %}Analysis Result: {{ report.keyword }}{% endblock %}
 
 {% block content %}
-<a href="/" class="btn btn-outline-secondary mb-4">← Analyze Another Keyword</a>
-
-<h1 class="mb-4">Market Analysis for '<strong>{{ report.keyword }}</strong>'</h1>
-
-<!-- 핵심 결과 카드 -->
-<div class="card text-center mb-4 shadow-sm">
-    <div class="card-header">
-        Market Entry Barrier Score
+<div class="animate-fade-in">
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Market Analysis</h1>
+            <p class="text-lg text-gray-600 dark:text-gray-400">Keyword: <span class="font-semibold text-primary-600 dark:text-primary-400">'{{ report.keyword }}'</span></p>
+        </div>
+        <div class="mt-4 sm:mt-0">
+            <a href="/" class="btn btn-secondary">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Analyze Another
+            </a>
+        </div>
     </div>
-    <div class="card-body highlight-card">
-        <p class="score">{{ report.difficulty_score }}/10</p>
-        <p class="card-text">Higher scores indicate fiercer competition and harder market entry.</p>
-    </div>
-</div>
 
-<!-- 세부 분석 결과 -->
-<div class="row">
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Competition Status</h5>
-                <p class="card-text fs-4">Total <strong>{{ report.competitor_count }}</strong> competing products{% if report.prime_count %}<br><small class="text-muted">Prime shipping: {{ report.prime_count }} ({{ report.prime_percentage }}%)</small>{% endif %}</p>
-                <small class="text-muted">Prime = Free shipping available on Amazon Prime</small>
+    <!-- Interactive Filters -->
+    <div class="card mb-6">
+        <div class="card-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div>
+                    <label for="price-slider" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Price Range Filter</label>
+                    <div id="price-slider" class="mt-4"></div>
+                    <div id="price-slider-values" class="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center"></div>
+                </div>
+                <div id="filtered-stats" class="text-center md:text-left">
+                    <p class="text-gray-600 dark:text-gray-400">Showing <strong id="filtered-product-count" class="text-primary-600 dark:text-primary-400"></strong> products</p>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Market Saturation</h5>
-                <p class="card-text fs-4">Top 10 products account for <strong>{{ report.market_saturation_percentage }}%</strong> of total sales</p>
+
+    <div id="report-container" class="space-y-8">
+        <!-- Key Metrics Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Market Entry Barrier Score -->
+            <div class="stat-card text-center col-span-1 lg:col-span-2">
+                <div class="mb-4">
+                    <div class="stat-label">Market Entry Barrier Score</div>
+                    <div class="stat-value text-4xl lg:text-5xl {{ 'text-danger-600' if report.difficulty_score >= 7 else ('text-warning-600' if report.difficulty_score >= 4 else 'text-success-600') }}">
+                        {{ report.difficulty_score }}<span class="text-2xl text-gray-500">/10</span>
+                    </div>
+                </div>
+                <div class="progress mb-3">
+                    <div class="progress-bar {{ 'danger' if report.difficulty_score >= 7 else ('warning' if report.difficulty_score >= 4 else 'success') }}" 
+                         style="width: {{ report.difficulty_score * 10 }}%"></div>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Higher scores indicate fiercer competition</p>
+            </div>
+
+            <!-- Competition Count -->
+            <div class="stat-card">
+                <div class="stat-label">Competing Products</div>
+                <div class="stat-value text-primary-600">{{ report.competitor_count }}</div>
+                {% if report.prime_count %}
+                <div class="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    <span class="badge badge-primary">{{ report.prime_count }} Prime ({{ report.prime_percentage }}%)</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Market Saturation -->
+            <div class="stat-card">
+                <div class="stat-label">Market Saturation</div>
+                <div class="stat-value text-secondary-600">{{ report.market_saturation_percentage }}%</div>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Top 10 market share</p>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">Competition Overview</h3></div>
+                <div class="card-body"><canvas id="competitionChart" width="400" height="300"></canvas></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">Top 5 Products by Sales</h3></div>
+                <div class="card-body"><canvas id="marketShareChart" width="400" height="300"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Top Products Table -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Top 10 Products by Sales Volume</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Monthly purchase estimates</p>
+            </div>
+            <div class="card-body p-0">
+                <div class="overflow-x-auto">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th><th>Product</th><th>Price</th><th>Rating</th><th>Monthly Sales</th><th>Prime</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table-body">
+                            <!-- Rows will be dynamically inserted by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="no-products-message" class="hidden p-8 text-center text-gray-500">
+                    <p>No products match the selected price range.</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
-<div class="card">
-    <div class="card-header">
-        TOP 10 Products (By Sales Volume)
-    </div>
-    <ul class="list-group list-group-flush">
-        {% for product in report.top_10_products %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            {{ product.product_title }}
-            <span class="badge bg-primary rounded-pill">{{ product.purchased_last_month }}+/month{% if product.is_prime %} 📦Prime{% endif %}</span>
-        </li>
-        {% else %}
-        <li class="list-group-item">No product information available.</li>
-        {% endfor %}
-    </ul>
-</div>
+{% block extra_scripts %}
+<script>
+class ReportPage {
+    constructor(reportData) {
+        this.reportData = reportData;
+        this.allProducts = this.parseProductPrices(reportData.top_10_products || []);
+        this.charts = {};
+        this.priceRange = [0, 1000];
+
+        this.init();
+    }
+
+    init() {
+        this.setupCharts();
+        this.setupPriceSlider();
+        this.updateDashboard(this.allProducts);
+    }
+
+    parseProductPrices(products) {
+        return products.map(p => {
+            const priceStr = (p.discounted_price || '0').replace(/[^\d.]/g, '');
+            p.numeric_price = parseFloat(priceStr) || 0;
+            return p;
+        });
+    }
+
+    setupPriceSlider() {
+        const slider = document.getElementById('price-slider');
+        if (!slider) return;
+
+        const prices = this.allProducts.map(p => p.numeric_price).filter(p => p > 0);
+        const minPrice = prices.length > 0 ? Math.floor(Math.min(...prices)) : 0;
+        const maxPrice = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 100;
+        this.priceRange = [minPrice, maxPrice];
+
+        noUiSlider.create(slider, {
+            start: this.priceRange,
+            connect: true,
+            range: {
+                'min': minPrice,
+                'max': maxPrice
+            },
+            format: {
+                to: value => `${Math.round(value)}`,
+                from: value => Number(value.replace(', ''))
+            }
+        });
+
+        slider.noUiSlider.on('update', (values) => {
+            const [min, max] = values.map(v => Number(v.replace(', '')));
+            document.getElementById('price-slider-values').innerHTML = `Selected: <span class="font-semibold">${values[0]} - ${values[1]}</span>`;
+            this.filterDataByPrice(min, max);
+        });
+    }
+
+    filterDataByPrice(min, max) {
+        const filteredProducts = this.allProducts.filter(p => p.numeric_price >= min && p.numeric_price <= max);
+        this.updateDashboard(filteredProducts);
+    }
+
+    updateDashboard(products) {
+        document.getElementById('filtered-product-count').textContent = `${products.length} of ${this.allProducts.length}`;
+        this.renderTable(products);
+        this.updateCharts(products);
+    }
+
+    renderTable(products) {
+        const tableBody = document.getElementById('products-table-body');
+        const noProductsMsg = document.getElementById('no-products-message');
+        if (!tableBody || !noProductsMsg) return;
+
+        tableBody.innerHTML = '';
+        if (products.length === 0) {
+            noProductsMsg.classList.remove('hidden');
+            return;
+        }
+        noProductsMsg.classList.add('hidden');
+
+        products.forEach((p, index) => {
+            const row = `
+                <tr>
+                    <td><span class="rank">${index + 1}</span></td>
+                    <td class="max-w-xs"><div class="font-medium text-gray-900 dark:text-white truncate">${p.product_title}</div></td>
+                    <td><span class="font-semibold text-gray-900 dark:text-white">${p.discounted_price}</span></td>
+                    <td>
+                        <div class="flex items-center">
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${p.product_rating}</span>
+                            <div class="flex ml-1">${[...Array(5)].map((_, i) => `<svg class="w-4 h-4 ${i < Math.round(p.product_rating) ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`).join('')}</div>
+                        </div>
+                    </td>
+                    <td><span class="badge badge-primary">${p.purchased_last_month}+/mo</span></td>
+                    <td>${p.is_prime ? '<span class="badge badge-success">📦 Prime</span>' : '<span class="text-gray-400 text-sm">Standard</span>'}</td>
+                </tr>
+            `;
+            tableBody.innerHTML += row;
+        });
+    }
+
+    setupCharts() {
+        Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+        const isDarkMode = document.documentElement.classList.contains('dark');
+        Chart.defaults.color = isDarkMode ? '#9CA3AF' : '#6B7280';
+
+        // Competition Overview Chart
+        const competitionCtx = document.getElementById('competitionChart').getContext('2d');
+        this.charts.competition = new Chart(competitionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Prime Products', 'Standard Products'],
+                datasets: [{
+                    data: [this.reportData.prime_count, this.reportData.competitor_count - this.reportData.prime_count],
+                    backgroundColor: ['#10B981', '#6B7280'],
+                    borderWidth: 0, hoverOffset: 4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+
+        // Market Share Chart
+        const marketShareCtx = document.getElementById('marketShareChart').getContext('2d');
+        this.charts.marketShare = new Chart(marketShareCtx, {
+            type: 'bar',
+            data: { labels: [], datasets: [{ label: 'Monthly Sales', data: [], backgroundColor: '#3B82F6', borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+    }
+
+    updateCharts(products) {
+        // Update Market Share Chart with top 5 filtered products
+        const top5 = products.sort((a, b) => b.purchased_last_month - a.purchased_last_month).slice(0, 5);
+        this.charts.marketShare.data.labels = top5.map(p => p.product_title.substring(0, 15) + '...');
+        this.charts.marketShare.data.datasets[0].data = top5.map(p => p.purchased_last_month);
+        this.charts.marketShare.update();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const reportData = {
+        keyword: '{{ report.keyword }}',
+        difficulty_score: {{ report.difficulty_score }},
+        competitor_count: {{ report.competitor_count }},
+        prime_count: {{ report.prime_count or 0 }},
+        prime_percentage: {{ report.prime_percentage or 0 }},
+        market_saturation_percentage: {{ report.market_saturation_percentage }},
+        top_10_products: {{ report.top_10_products|tojson|safe }},
+        rating_by_price_bin: {{ report.rating_by_price_bin|tojson|safe if report.rating_by_price_bin else '{}' }}
+    };
+    new ReportPage(reportData);
+});
+</script>
 {% endblock %}
