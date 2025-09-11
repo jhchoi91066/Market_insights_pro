@@ -9,3 +9,5 @@ alembic
 jinja2
 python-multipart
 redis
+httpx
+kafka-python

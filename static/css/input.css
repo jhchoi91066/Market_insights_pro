@@ -7,24 +7,28 @@
 @layer components {
   /* 카드 스타일 */
   .card {
-    @apply bg-white rounded-lg shadow-card hover:shadow-card-hover transition-shadow duration-200;
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700;
   }
   
+  .card-title {
+      @apply text-lg font-semibold text-gray-900 dark:text-white;
+  }
+
   .card-header {
-    @apply p-6 border-b border-gray-200;
+    @apply p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700;
   }
   
   .card-body {
-    @apply p-6;
+    @apply p-4 sm:p-6;
   }
   
   .card-footer {
-    @apply p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg;
+    @apply p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg;
   }
 
   /* 버튼 스타일 */
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-150;
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-150;
   }
   
   .btn-primary {
@@ -32,245 +36,81 @@
   }
   
   .btn-secondary {
-    @apply bg-gray-600 hover:bg-gray-700 text-white focus:ring-gray-500;
-  }
-  
-  .btn-success {
-    @apply bg-success-600 hover:bg-success-700 text-white focus:ring-success-500;
-  }
-  
-  .btn-warning {
-    @apply bg-warning-600 hover:bg-warning-700 text-white focus:ring-warning-500;
-  }
-  
-  .btn-danger {
-    @apply bg-danger-600 hover:bg-danger-700 text-white focus:ring-danger-500;
-  }
-  
-  .btn-lg {
-    @apply px-6 py-3 text-base;
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:ring-gray-500;
   }
 
   /* 폼 요소 스타일 */
-  .form-input {
-    @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
-  }
-  
-  .form-label {
-    @apply block text-sm font-medium text-gray-700 mb-2;
+  .input-field {
+    @apply block w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm transition-colors;
   }
 
   /* 통계 카드 */
   .stat-card {
-    @apply card p-6;
+    @apply card p-6 transition-all duration-200 hover:shadow-xl hover:scale-[1.03];
   }
   
   .stat-value {
-    @apply text-2xl font-bold text-gray-900;
+    @apply text-3xl font-bold text-gray-900 dark:text-white;
   }
   
   .stat-label {
-    @apply text-sm font-medium text-gray-500 uppercase tracking-wide;
-  }
-  
-  .stat-change {
-    @apply text-sm font-medium;
-  }
-  
-  .stat-change.positive {
-    @apply text-success-600;
-  }
-  
-  .stat-change.negative {
-    @apply text-danger-600;
-  }
-
-  /* 로딩 스피너 */
-  .spinner {
-    @apply inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin;
-  }
-  
-  .spinner-lg {
-    @apply w-8 h-8 border-4;
+    @apply text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide;
   }
 
   /* 프로그레스 바 */
   .progress {
-    @apply w-full bg-gray-200 rounded-full h-2 overflow-hidden;
+    @apply w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden;
   }
   
   .progress-bar {
-    @apply h-full bg-primary-600 transition-all duration-300 ease-out;
+    @apply h-full rounded-full transition-all duration-500 ease-out;
   }
   
-  .progress-bar.success {
-    @apply bg-success-600;
-  }
-  
-  .progress-bar.warning {
-    @apply bg-warning-600;
-  }
-  
-  .progress-bar.danger {
-    @apply bg-danger-600;
-  }
+  .progress-bar.primary { @apply bg-primary-600; }
+  .progress-bar.success { @apply bg-success-600; }
+  .progress-bar.warning { @apply bg-warning-600; }
+  .progress-bar.danger { @apply bg-danger-600; }
 
   /* 뱃지 */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
   
-  .badge-primary {
-    @apply bg-primary-100 text-primary-800;
-  }
+  .badge-primary { @apply bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200; }
+  .badge-success { @apply bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200; }
   
-  .badge-success {
-    @apply bg-success-100 text-success-800;
-  }
-  
-  .badge-warning {
-    @apply bg-warning-100 text-warning-800;
-  }
-  
-  .badge-danger {
-    @apply bg-danger-100 text-danger-800;
-  }
-  
-  .badge-gray {
-    @apply bg-gray-100 text-gray-800;
-  }
-
   /* 테이블 스타일 */
   .table {
-    @apply min-w-full divide-y divide-gray-200;
+    @apply min-w-full divide-y divide-gray-200 dark:divide-gray-700;
   }
   
   .table thead {
-    @apply bg-gray-50;
+    @apply bg-gray-50 dark:bg-gray-700/50;
   }
   
   .table th {
-    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider;
   }
   
   .table td {
-    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-300;
   }
   
+  .table tbody tr {
+      @apply transition-colors duration-150;
+  }
+
   .table tbody tr:hover {
-    @apply bg-gray-50;
+    @apply bg-gray-50 dark:bg-gray-800;
+  }
+
+  .rank {
+      @apply inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-sm font-medium;
   }
 }
 
-/* Dark mode base styles */
-html.dark {
-  color-scheme: dark;
-}
-
-html.dark body {
-  @apply bg-gray-900 text-gray-100;
-}
-
-html.dark nav {
-  @apply bg-gray-800;
-}
-
-html.dark footer {
-  @apply bg-gray-800 border-gray-700;
-}
-
-/* Dark mode component overrides */
-@layer components {
-  .dark .card {
-    @apply bg-gray-800 border border-gray-700;
-  }
-  
-  .dark .card-header {
-    @apply border-gray-700;
-  }
-  
-  .dark .card-footer {
-    @apply bg-gray-700 border-gray-600;
-  }
-  
-  .dark .stat-value {
-    @apply text-gray-100;
-  }
-  
-  .dark .stat-label {
-    @apply text-gray-400;
-  }
-  
-  .dark .form-input {
-    @apply bg-gray-700 border-gray-600 text-gray-100 focus:border-primary-400 focus:ring-primary-400;
-  }
-  
-  .dark .form-label {
-    @apply text-gray-300;
-  }
-  
-  .dark .table {
-    @apply divide-gray-700;
-  }
-  
-  .dark .table thead {
-    @apply bg-gray-700;
-  }
-  
-  .dark .table th {
-    @apply text-gray-300;
-  }
-  
-  .dark .table td {
-    @apply text-gray-300;
-  }
-  
-  .dark .table tbody tr:hover {
-    @apply bg-gray-700;
-  }
-  
-  .dark .progress {
-    @apply bg-gray-700;
-  }
-  
-  .dark .badge-primary {
-    @apply bg-primary-900 text-primary-200;
-  }
-  
-  .dark .badge-success {
-    @apply bg-success-900 text-success-200;
-  }
-  
-  .dark .badge-warning {
-    @apply bg-warning-900 text-warning-200;
-  }
-  
-  .dark .badge-danger {
-    @apply bg-danger-900 text-danger-200;
-  }
-  
-  .dark .badge-gray {
-    @apply bg-gray-700 text-gray-300;
-  }
-}
-
-/* 커스텀 유틸리티 클래스 */
+/* 유틸리티 및 애니메이션 */
 @layer utilities {
-  .text-gradient {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  
-  .shadow-glow {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-  }
-  
-  .backdrop-blur-sm {
-    backdrop-filter: blur(4px);
-  }
-  
   /* 리플 효과 */
   .ripple {
     position: absolute;
@@ -282,145 +122,62 @@ html.dark footer {
   }
   
   @keyframes ripple {
-    to {
-      transform: scale(4);
-      opacity: 0;
-    }
+    to { transform: scale(4); opacity: 0; }
   }
   
-  /* 고급 애니메이션 */
-  .animate-slide-up {
-    animation: slideUp 0.6s ease-out;
-  }
-  
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
+  /* 페이드인 애니메이션 */
   .animate-fade-in {
-    animation: fadeIn 0.8s ease-out;
+    animation: fadeIn 0.5s ease-out;
   }
   
   @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
-  
-  .animate-scale-in {
-    animation: scaleIn 0.3s ease-out;
+
+  /* 슬라이드업 애니메이션 */
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
   }
-  
-  @keyframes scaleIn {
-    from {
-      opacity: 0;
-      transform: scale(0.9);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  
-  .animate-bounce-in {
-    animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-  
-  @keyframes bounceIn {
-    0% {
-      opacity: 0;
-      transform: scale(0.3);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.05);
-    }
-    70% {
-      transform: scale(0.9);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-  
-  /* 호버 효과 */
-  .hover-lift {
-    transition: transform 0.2s ease-in-out;
-  }
-  
-  .hover-lift:hover {
-    transform: translateY(-2px);
-  }
-  
-  .hover-glow:hover {
-    box-shadow: 0 0 25px rgba(59, 130, 246, 0.4);
-  }
-  
-  /* 스크롤바 커스터마이징 */
-  .scrollbar-thin {
-    scrollbar-width: thin;
-  }
-  
-  .scrollbar-thumb-gray {
-    scrollbar-color: #9ca3af #f3f4f6;
-  }
-  
-  /* Webkit 브라우저용 스크롤바 */
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: #f3f4f6;
-  }
-  
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #9ca3af;
-    border-radius: 3px;
-  }
-  
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-  }
-  
-  /* 다크모드 스크롤바 */
-  .dark .scrollbar-thin::-webkit-scrollbar-track {
-    background: #374151;
-  }
-  
-  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #6b7280;
-  }
-  
-  .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
-  }
-  
-  /* 접근성 개선 */
-  .focus-visible-only:focus {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-  }
-  
-  @media (prefers-reduced-motion: reduce) {
-    .animate-slide-up,
-    .animate-fade-in,
-    .animate-scale-in,
-    .animate-bounce-in,
-    .hover-lift {
-      animation: none;
-      transition: none;
-    }
+}
+
+/* noUiSlider 커스텀 스타일 */
+.noUi-target {
+    @apply bg-gray-200 dark:bg-gray-700 border-none shadow-inner rounded-full;
+}
+.noUi-connect {
+    @apply bg-primary-600;
+}
+.noUi-handle {
+    @apply border-2 border-primary-600 bg-white dark:bg-gray-200 rounded-full shadow-lg cursor-pointer;
+}
+.noUi-handle:focus {
+    @apply outline-none ring-2 ring-primary-400 ring-offset-2 dark:ring-offset-gray-800;
+}
+.noUi-handle:before, .noUi-handle:after {
+    @apply hidden;
+}
+.noUi-horizontal {
+    height: 8px;
+}
+.noUi-horizontal .noUi-handle {
+    width: 20px;
+    height: 20px;
+    right: -10px;
+    top: -6px;
+}
+
+/* 모바일 터치 최적화 */
+@media (max-width: 768px) {
+  .noUi-horizontal .noUi-handle {
+    width: 28px;      /* 핸들 너비 증가 */
+    height: 28px;     /* 핸들 높이 증가 */
+    right: -14px;     /* 위치 조정 */
+    top: -10px;       /* 위치 조정 */
   }
 }

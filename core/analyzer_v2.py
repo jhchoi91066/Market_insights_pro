@@ -10,6 +10,7 @@ from sqlalchemy import func, and_, desc, text
 from sqlalchemy.orm import Session
 from collections import Counter
 import re
+from functools import lru_cache
 
 # ORM 모델 import
 try:
@@ -57,6 +58,7 @@ class SQLiteMarketAnalyzer:
         """데이터베이스 세션을 반환합니다."""
         return self.db_manager.get_session()
 
+    @lru_cache(maxsize=128)
     def analyze_category_competition(self, category: str, price_range: tuple = (0, 999999), num_bins: int = 4):
         """
         특정 카테고리의 경쟁 강도를 분석합니다. (SQL 기반)
@@ -327,6 +329,7 @@ class SQLiteMarketAnalyzer:
         finally:
             self.db_manager.close_session(session)
 
+    @lru_cache(maxsize=128)
     def calculate_market_saturation(self, category: str):
         """
         특정 카테고리의 시장 포화도를 계산합니다. (개선된 Amazon 기반 로직)

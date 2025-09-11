@@ -1,0 +1,108 @@
+services:
+  # Zookeeper - Kafka 클러스터를 관리하는 서비스
+  # 역할: Kafka 브로커들의 메타데이터 저장, 리더 선출, 구성 관리
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: market-insights-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181  # 클라이언트 연결 포트
+      ZOOKEEPER_TICK_TIME: 2000    # Zookeeper 내부 시간 단위 (밀리초)
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      - kafka-network
+    # 헬스체크: Java의 내장 도구로 Zookeeper 연결 테스트
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5s bash -c '</dev/tcp/localhost/2181' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Kafka Broker - 실제 메시지를 저장하고 처리하는 서버
+  # 역할: 토픽 관리, 메시지 저장, Producer/Consumer와 통신
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: market-insights-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy  # Zookeeper가 healthy해야만 시작
+    environment:
+      # Kafka 브로커 기본 설정
+      KAFKA_BROKER_ID: 1                                    # 브로커 고유 ID
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181               # Zookeeper 연결 정보
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092 # 외부 클라이언트 연결 주소
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092            # 내부 리스너 설정
+      
+      # 토픽 자동 생성 설정
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'              # 토픽 자동 생성 허용
+      KAFKA_NUM_PARTITIONS: 3                              # 기본 파티션 수 (병렬 처리 단위)
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1                  # 복제본 수 (단일 브로커이므로 1)
+      
+      # 성능 최적화 설정
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1            # Offset 토픽 복제본 수
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1               # 트랜잭션 로그 최소 동기화 복제본
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1    # 트랜잭션 로그 복제본 수
+      
+      # 프로덕션 메시지 보존 설정
+      KAFKA_LOG_RETENTION_HOURS: 168                       # 메시지 보존 시간 (7일, 실서비스 기준)
+      KAFKA_LOG_RETENTION_BYTES: 10737418240              # 최대 보존 크기 (10GB, 충분한 용량)
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824                 # 세그먼트 파일 크기 (1GB)
+      
+      # 성능 및 안정성 설정
+      KAFKA_LOG_CLEANUP_POLICY: delete                     # 로그 정리 정책
+      KAFKA_COMPRESSION_TYPE: snappy                       # 메시지 압축 (성능 최적화)
+      KAFKA_MESSAGE_MAX_BYTES: 1000000                     # 최대 메시지 크기 (1MB)
+      
+      # 복제 및 가용성 설정 (단일 브로커지만 미래 확장 고려)
+      KAFKA_MIN_INSYNC_REPLICAS: 1                        # 최소 동기화 복제본
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: 'false'       # 데이터 무결성 보장
+      
+    ports:
+      - "9092:9092"   # Kafka 클라이언트 연결 포트
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - kafka-network
+    # 프로덕션 레벨 헬스체크: Kafka 브로커 상태와 토픽 리스트 확인
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092", "--timeout", "10000"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s  # Kafka는 시작하는데 시간이 더 걸림
+
+  # Kafka UI - 웹 기반 Kafka 관리 인터페이스 (선택사항)
+  # 역할: 토픽, 메시지, 컨슈머 그룹을 시각적으로 관리
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: market-insights-kafka-ui
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: market-insights-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    ports:
+      - "8080:8080"   # Kafka UI 웹 인터페이스
+    networks:
+      - kafka-network
+
+# Docker 볼륨 정의 (데이터 영속성)
+volumes:
+  zookeeper-data:
+    driver: local
+  zookeeper-log:
+    driver: local
+  kafka-data:
+    driver: local
+
+# Docker 네트워크 정의 (컨테이너 간 통신)
+networks:
+  kafka-network:
+    driver: bridge

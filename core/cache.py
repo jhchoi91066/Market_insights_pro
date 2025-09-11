@@ -126,6 +126,29 @@ class CacheManager:
             logger.error(f"❌ Error retrieving cached analysis for '{keyword}': {e}")
             return None
 
+    def delete_analysis_result(self, keyword: str) -> bool:
+        """
+        분석 결과 캐시 삭제
+        
+        Args:
+            keyword: 삭제할 분석 키워드
+            
+        Returns:
+            삭제 성공 여부
+        """
+        try:
+            key = self._generate_key("analysis", keyword)
+            deleted_count = self.redis_client.delete(key)
+            if deleted_count > 0:
+                logger.info(f"🗑️ Analysis cache deleted for keyword: '{keyword}'")
+                return True
+            else:
+                logger.info(f"ℹ️ No analysis cache to delete for keyword: '{keyword}'")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Error deleting analysis cache for '{keyword}': {e}")
+            return False
+
     def set_scraping_status(self, session_id: str, status_data: Dict[str, Any], ttl_minutes: int = 30) -> bool:
         """
         스크래핑 진행 상태 캐시 저장

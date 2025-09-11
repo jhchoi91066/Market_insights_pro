@@ -1,5 +1,38 @@
 # 🚀 Market Insights Pro - 고급 개발 로드맵 & 체크리스트
 
+시급한 오류 사항
+리포트 페이지에 데이터 정렬 기능을 추가하는
+  것이었습니다.
+
+  구체적으로는, 사용자가 '판매량', '평점', '가격' 등 다양한 기준으로 제품 목록을
+  재정렬할 수 있도록 '정렬 기준' 드롭다운 메뉴를 UI에 추가하고, 이 선택에 따라
+  테이블의 데이터가 실시간으로 바뀌는 JavaScript 로직을 report.html 파일에
+  구현하려고 했습니다.
+
+  하지만, 파일 수정 과정에서 반복적으로 오류가 발생하여 완료하지 못했습니다.
+오류 메시지: Failed to edit, 0 occurrences found for old_string
+
+  이 오류는 replace 도구를 사용하여 파일을 수정하려고 할 때 발생합니다.
+
+  오류 원인
+
+  오류의 근본 원인은 제가 파일을 수정하기 위해 replace 도구를 사용할 때,
+  교체의 기준이 되는 기존 파일 내용(`old_string`)을 잘못 전달했기
+  때문입니다.
+
+  조금 더 상세히 설명하면 다음과 같은 과정이 반복되었습니다.
+
+   1. A라는 내용의 report.html 파일을 수정하기 위해 replace를 시도합니다.
+   2. 성공적으로 수정되어 파일 내용은 B가 됩니다.
+   3. 그 다음 단계에서 B의 내용을 추가로 수정하여 C로 만들려고 할 때, 저는 B가
+      아닌, 제 기억 속의 이전 내용인 A를 기준으로 replace를 시도했습니다.
+   4. 실제 파일의 내용은 B인데, 저는 A를 찾으려고 하니 당연히 찾을 수 없었고,
+      "기존 내용(old_string)을 찾을 수 없어 수정을 실패했다"는 오류가 발생한
+      것입니다.
+
+  결과적으로 '파일 읽기 -> 잘못된 내용으로 수정 시도 -> 실패 -> 사과 -> 다시
+  파일 읽기'의 비효율적인 루프에 빠졌습니다.
+
 ## 📋 프로젝트 개요
 
 **목표**: 현재 Amazon Market Insights Pro MVP를 실무급 대용량 시스템으로 발전시키기  
@@ -106,24 +139,24 @@
   - [-] 위젯 최소화/최대화 기능
   - [-] 사용자 레이아웃 설정 로컬스토리지 저장
 
-- [ ] **데이터 필터링 UI**
-  - [ ] 가격 범위 슬라이더 구현
+- [x] **데이터 필터링 UI**
+  - [x] 가격 범위 슬라이더 구현
   - [ ] 카테고리별 필터 체크박스
-  - [ ] 정렬 옵션 (가격, 평점, 리뷰 수)
-  - [ ] 검색 결과 실시간 필터링
+  - [x] 정렬 옵션 (가격, 평점, 리뷰 수)
+  - [x] 검색 결과 실시간 필터링
 
 #### Day 6-7: 성능 최적화 및 테스트
 - [ ] **프론트엔드 최적화**
-  - [ ] CSS/JS 번들 최적화
-  - [ ] 이미지 lazy loading
-  - [ ] 차트 렌더링 성능 개선
-  - [ ] 모바일 터치 제스처 최적화
+  - [x] CSS/JS 번들 최적화
+  - [-] 이미지 lazy loading
+  - [x] 차트 렌더링 성능 개선
+  - [x] 모바일 터치 제스처 최적화
 
 - [ ] **테스트 및 브라우저 호환성**
-  - [ ] Chrome, Firefox, Safari 테스트
-  - [ ] 모바일 브라우저 테스트 (iOS, Android)
-  - [ ] 다양한 화면 해상도에서 테스트
-  - [ ] 접근성 (Accessibility) 개선
+  - [-] Chrome, Firefox, Safari 테스트
+  - [x] 모바일 브라우저 테스트 (iOS, Android)
+  - [-] 다양한 화면 해상도에서 테스트
+  - [-] 접근성 (Accessibility) 개선
 
 ### 🎯 Week 1-2 학습 포인트
 - **CSS 프레임워크 전환**: Bootstrap → Tailwind 마이그레이션 경험
@@ -143,41 +176,43 @@
 ### 📋 Week 3 체크리스트
 
 #### Day 1-2: Redis 고급 캐싱 전략
-- [ ] **캐시 계층화 (Multi-level Caching)**
-  - [ ] L1 캐시: 메모리 내 캐시 (lru_cache 데코레이터)
-  - [ ] L2 캐시: Redis 캐시 (분석 결과, 스크래핑 데이터)
-  - [ ] L3 캐시: 데이터베이스 쿼리 최적화
-  - [ ] 캐시 우선순위 및 제거 정책 구현
+- [x] **캐시 계층화 (Multi-level Caching)**
+  - [x] L1 캐시: 메모리 내 캐시 (lru_cache 데코레이터)
+  - [x] L2 캐시: Redis 캐시 (분석 결과, 스크래핑 데이터)
+  - [-] L3 캐시: 데이터베이스 쿼리 최적화
+  - [-] 캐시 우선순위 및 제거 정책 구현
 
-- [ ] **캐시 무효화 전략**
-  - [ ] Time-based 무효화 (TTL 설정)
-  - [ ] Event-based 무효화 (데이터 변경시)
-  - [ ] 수동 무효화 (관리자 도구)
-  - [ ] 캐시 워밍 (서버 시작시 중요 데이터 미리 로드)
+- [x] **캐시 무효화 전략**
+  - [x] Time-based 무효화 (TTL 설정)
+  - [x] Event-based 무효화 (데이터 변경시)
+  - [x] 수동 무효화 (관리자 도구)
+  - [x] 캐시 워밍 (서버 시작시 중요 데이터 미리 로드)
 
 #### Day 3-4: Apache Kafka 설치 및 기본 설정
-- [ ] **Kafka 클러스터 구축**
-  - [ ] Docker Compose로 Kafka + Zookeeper 설정
-  - [ ] 기본 토픽 생성 (`market-analysis-events`, `scraping-results`)
-  - [ ] Kafka UI 도구 설치 (kafka-ui or akhq)
-  - [ ] Python kafka 클라이언트 설치 (`pip install kafka-python`)
+- [x] **Kafka 클러스터 구축**
+  - [x] Docker Compose로 Kafka + Zookeeper 설정 (프로덕션 레벨 헬스체크 포함)
+  - [x] 기본 토픽 생성 (`market-analysis-events`, `scraping-status-updates`, `user-notifications`)
+  - [x] Kafka UI 도구 설치 (provectuslabs/kafka-ui:latest)
+  - [x] Python kafka 클라이언트 설치 (`pip install kafka-python`)
+  - [x] Producer/Consumer 기본 테스트 완료
 
-- [ ] **이벤트 스키마 설계**
+- [x] **이벤트 스키마 설계**
   ```python
-  # 이벤트 타입별 스키마 정의
-  SCRAPING_STARTED = {
-      "event_type": "scraping_started",
-      "keyword": str,
-      "timestamp": datetime,
-      "session_id": str
+  # 실제 구현된 이벤트 타입별 스키마 정의
+  ANALYSIS_COMPLETED = {
+      "event": "analysis_completed",
+      "keyword": "wireless mouse", 
+      "timestamp": "2025-09-12T00:10:00Z",
+      "results": {
+          "competitor_count": 15,
+          "avg_price": 29.99
+      }
   }
   
-  ANALYSIS_COMPLETED = {
-      "event_type": "analysis_completed", 
-      "keyword": str,
-      "results": dict,
-      "processing_time": float
-  }
+  # 토픽별 설정
+  # market-analysis-events: 3 파티션, 7일 보존
+  # scraping-status-updates: 2 파티션, 1일 보존  
+  # user-notifications: 1 파티션, 3일 보존
   ```
 
 #### Day 5-7: 이벤트 기반 아키텍처 구현
