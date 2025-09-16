@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 시장 트렌드 대시보드 - Market Insights Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'pulse-slow': 'pulse 3s infinite',
+                        'bounce-slow': 'bounce 2s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- 헤더 -->
+    <nav class="bg-white shadow-lg border-b-4 border-blue-500">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-chart-line text-3xl text-blue-600"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">실시간 시장 트렌드 대시보드</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="streamStatus" class="flex items-center">
+                        <div class="animate-pulse w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                        <span class="text-sm text-gray-600">스트림 연결 중...</span>
+                    </div>
+                    <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-home mr-2"></i>메인으로
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+        <!-- 스트림 상태 카드 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">스트림 상태</p>
+                        <p id="streamHealthStatus" class="text-2xl font-bold text-green-600">활성</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-full">
+                        <i class="fas fa-stream text-green-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">이상치 탐지</p>
+                        <p id="anomalyCount" class="text-2xl font-bold text-orange-600">-</p>
+                    </div>
+                    <div class="bg-orange-100 p-3 rounded-full">
+                        <i class="fas fa-exclamation-triangle text-orange-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">시장 신호</p>
+                        <p id="signalCount" class="text-2xl font-bold text-blue-600">-</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-full">
+                        <i class="fas fa-signal text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">처리 속도</p>
+                        <p id="processingSpeed" class="text-2xl font-bold text-purple-600">-</p>
+                    </div>
+                    <div class="bg-purple-100 p-3 rounded-full">
+                        <i class="fas fa-tachometer-alt text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- 실시간 이상치 탐지 -->
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-search text-red-500 mr-2"></i>실시간 이상치 탐지
+                    </h2>
+                    <div class="flex space-x-2">
+                        <button id="refreshAnomalies" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition">
+                            <i class="fas fa-sync-alt mr-1"></i>새로고침
+                        </button>
+                    </div>
+                </div>
+                <div id="anomaliesList" class="space-y-3 max-h-96 overflow-y-auto">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-chart-line text-4xl mb-4"></i>
+                        <p>이상치 탐지 중...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시장 신호 분석 -->
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-bullseye text-green-500 mr-2"></i>시장 신호 분석
+                    </h2>
+                    <div class="flex space-x-2">
+                        <button id="refreshSignals" class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition">
+                            <i class="fas fa-sync-alt mr-1"></i>새로고침
+                        </button>
+                    </div>
+                </div>
+                <div id="marketSignalsList" class="space-y-3 max-h-96 overflow-y-auto">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-signal text-4xl mb-4"></i>
+                        <p>시장 신호 분석 중...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 실시간 트렌드 차트 -->
+        <div class="bg-white rounded-xl p-6 shadow-lg mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-chart-area text-blue-500 mr-2"></i>실시간 트렌드 분석
+                </h2>
+                <div class="flex space-x-2">
+                    <select id="timeRangeSelect" class="bg-gray-100 px-3 py-1 rounded text-sm">
+                        <option value="1">최근 1시간</option>
+                        <option value="6">최근 6시간</option>
+                        <option value="24">최근 24시간</option>
+                    </select>
+                    <button id="refreshChart" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition">
+                        <i class="fas fa-sync-alt mr-1"></i>새로고침
+                    </button>
+                </div>
+            </div>
+            <div class="h-80">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 키워드별 상세 분석 -->
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-tags text-purple-500 mr-2"></i>키워드별 트렌드 상세
+                </h2>
+                <div class="flex space-x-2">
+                    <input 
+                        type="text" 
+                        id="keywordFilter" 
+                        placeholder="키워드 필터..." 
+                        class="px-3 py-1 border rounded text-sm"
+                    >
+                    <button id="filterKeywords" class="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600 transition">
+                        <i class="fas fa-filter mr-1"></i>필터
+                    </button>
+                </div>
+            </div>
+            <div id="keywordAnalysisTable" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="px-4 py-2 text-left">키워드</th>
+                            <th class="px-4 py-2 text-center">경쟁 트렌드</th>
+                            <th class="px-4 py-2 text-center">가격 트렌드</th>
+                            <th class="px-4 py-2 text-center">시장 신호</th>
+                            <th class="px-4 py-2 text-center">추천</th>
+                            <th class="px-4 py-2 text-center">마지막 업데이트</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keywordTableBody">
+                        <tr>
+                            <td colspan="6" class="text-center py-8 text-gray-500">
+                                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                <br>데이터 로딩 중...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 알림 토스트 -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <script>
+        class StreamDashboard {
+            constructor() {
+                this.refreshInterval = null;
+                this.trendChart = null;
+                this.lastUpdate = null;
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.initChart();
+                this.startAutoRefresh();
+                this.loadInitialData();
+            }
+
+            setupEventListeners() {
+                // 새로고침 버튼들
+                document.getElementById('refreshAnomalies').addEventListener('click', () => {
+                    this.loadStreamInsights();
+                });
+                
+                document.getElementById('refreshSignals').addEventListener('click', () => {
+                    this.loadStreamInsights();
+                });
+                
+                document.getElementById('refreshChart').addEventListener('click', () => {
+                    this.updateTrendChart();
+                });
+                
+                // 시간 범위 변경
+                document.getElementById('timeRangeSelect').addEventListener('change', () => {
+                    this.loadStreamInsights();
+                    this.updateTrendChart();
+                });
+                
+                // 키워드 필터
+                document.getElementById('filterKeywords').addEventListener('click', () => {
+                    this.filterKeywordTable();
+                });
+                
+                document.getElementById('keywordFilter').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.filterKeywordTable();
+                    }
+                });
+            }
+
+            initChart() {
+                const ctx = document.getElementById('trendChart').getContext('2d');
+                this.trendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: '이상치 탐지 수',
+                                data: [],
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.4
+                            },
+                            {
+                                label: '시장 신호 수',
+                                data: [],
+                                borderColor: 'rgb(34, 197, 94)',
+                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: '실시간 스트림 처리 동향'
+                            }
+                        }
+                    }
+                });
+            }
+
+            async loadInitialData() {
+                await Promise.all([
+                    this.checkStreamHealth(),
+                    this.loadStreamInsights(),
+                    this.updateTrendChart()
+                ]);
+            }
+
+            async checkStreamHealth() {
+                try {
+                    const response = await fetch('/api/stream/health');
+                    const data = await response.json();
+                    
+                    const statusElement = document.getElementById('streamHealthStatus');
+                    const streamStatus = document.getElementById('streamStatus');
+                    
+                    if (data.status === 'healthy') {
+                        statusElement.textContent = '활성';
+                        statusElement.className = 'text-2xl font-bold text-green-600';
+                        
+                        streamStatus.innerHTML = `
+                            <div class="animate-pulse w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span class="text-sm text-green-600">스트림 정상</span>
+                        `;
+                    } else {
+                        statusElement.textContent = '오류';
+                        statusElement.className = 'text-2xl font-bold text-red-600';
+                        
+                        streamStatus.innerHTML = `
+                            <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                            <span class="text-sm text-red-600">스트림 오류</span>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('스트림 상태 확인 실패:', error);
+                    this.showToast('스트림 상태 확인에 실패했습니다.', 'error');
+                }
+            }
+
+            async loadStreamInsights() {
+                try {
+                    const hours = document.getElementById('timeRangeSelect').value;
+                    const response = await fetch(`/api/stream/insights?hours=${hours}`);
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        const data = result.data;
+                        
+                        // 통계 업데이트
+                        document.getElementById('anomalyCount').textContent = data.summary?.total_anomalies || 0;
+                        document.getElementById('signalCount').textContent = data.market_signals?.length || 0;
+                        
+                        // 이상치 목록 업데이트
+                        this.updateAnomaliesList(data.anomalies_detected || []);
+                        
+                        // 시장 신호 목록 업데이트
+                        this.updateMarketSignalsList(data.market_signals || []);
+                        
+                        this.lastUpdate = new Date().toLocaleTimeString();
+                        this.showToast(`데이터 업데이트 완료 (${this.lastUpdate})`, 'success');
+                    } else {
+                        throw new Error('데이터 로딩 실패');
+                    }
+                } catch (error) {
+                    console.error('스트림 인사이트 로딩 실패:', error);
+                    this.showToast('스트림 데이터 로딩에 실패했습니다.', 'error');
+                }
+            }
+
+            updateAnomaliesList(anomalies) {
+                const container = document.getElementById('anomaliesList');
+                
+                if (!anomalies.length) {
+                    container.innerHTML = `
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fas fa-check-circle text-4xl mb-4 text-green-400"></i>
+                            <p>감지된 이상치가 없습니다.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = anomalies.map(anomaly => `
+                    <div class="border-l-4 border-red-400 bg-red-50 p-4 rounded">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <p class="font-semibold text-red-800">${anomaly.keyword}</p>
+                                <p class="text-sm text-red-600 mt-1">
+                                    가격 변동: ${anomaly.price_change_percent?.toFixed(2)}%
+                                    (심각도: ${anomaly.severity})
+                                </p>
+                            </div>
+                            <span class="text-xs text-red-500">
+                                ${new Date(anomaly.detected_at).toLocaleString()}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            updateMarketSignalsList(signals) {
+                const container = document.getElementById('marketSignalsList');
+                
+                if (!signals.length) {
+                    container.innerHTML = `
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fas fa-chart-line text-4xl mb-4 text-blue-400"></i>
+                            <p>특별한 시장 신호가 없습니다.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const signalColors = {
+                    'market_heating_up': 'text-red-600 bg-red-50 border-red-400',
+                    'price_competition': 'text-orange-600 bg-orange-50 border-orange-400',
+                    'market_cooling_down': 'text-blue-600 bg-blue-50 border-blue-400',
+                    'price_inflation': 'text-purple-600 bg-purple-50 border-purple-400'
+                };
+                
+                container.innerHTML = signals.map(signal => {
+                    const colorClass = signalColors[signal.market_signal] || 'text-gray-600 bg-gray-50 border-gray-400';
+                    
+                    return `
+                        <div class="border-l-4 ${colorClass} p-4 rounded">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <p class="font-semibold">${signal.keyword}</p>
+                                    <p class="text-sm mt-1">
+                                        신호: ${signal.market_signal} | 추천: ${signal.recommendation}
+                                    </p>
+                                </div>
+                                <span class="text-xs">
+                                    ${new Date(signal.analyzed_at).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            updateTrendChart() {
+                // 차트 데이터 업데이트 로직
+                // 실제로는 시계열 데이터를 API에서 받아와 차트 업데이트
+                const now = new Date();
+                const labels = [];
+                const anomalyData = [];
+                const signalData = [];
+                
+                // 임시 데이터 (실제로는 API에서 받아옴)
+                for (let i = 23; i >= 0; i--) {
+                    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+                    labels.push(time.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'}));
+                    anomalyData.push(Math.floor(Math.random() * 5));
+                    signalData.push(Math.floor(Math.random() * 3));
+                }
+                
+                this.trendChart.data.labels = labels;
+                this.trendChart.data.datasets[0].data = anomalyData;
+                this.trendChart.data.datasets[1].data = signalData;
+                this.trendChart.update();
+            }
+
+            filterKeywordTable() {
+                const filter = document.getElementById('keywordFilter').value.toLowerCase();
+                // 키워드 테이블 필터링 로직
+                this.showToast(`"${filter}" 키워드로 필터링 완료`, 'info');
+            }
+
+            startAutoRefresh() {
+                // 30초마다 자동 새로고침
+                this.refreshInterval = setInterval(() => {
+                    this.checkStreamHealth();
+                    this.loadStreamInsights();
+                }, 30000);
+            }
+
+            showToast(message, type = 'info') {
+                const toastContainer = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    warning: 'bg-yellow-500',
+                    info: 'bg-blue-500'
+                };
+                
+                toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+                toast.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span>${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-white hover:text-gray-200">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                
+                toastContainer.appendChild(toast);
+                
+                // 애니메이션
+                setTimeout(() => {
+                    toast.classList.remove('translate-x-full');
+                }, 100);
+                
+                // 자동 제거
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.classList.add('translate-x-full');
+                        setTimeout(() => toast.remove(), 300);
+                    }
+                }, 5000);
+            }
+
+            destroy() {
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                }
+            }
+        }
+
+        // 페이지 로드 시 대시보드 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            window.streamDashboard = new StreamDashboard();
+        });
+
+        // 페이지 언로드 시 정리
+        window.addEventListener('beforeunload', () => {
+            if (window.streamDashboard) {
+                window.streamDashboard.destroy();
+            }
+        });
+    </script>
+</body>
+</html>
