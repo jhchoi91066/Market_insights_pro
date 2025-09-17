@@ -11,3 +11,6 @@ python-multipart
 redis
 httpx
 kafka-python
+celery[redis]
+flower
+kombu

@@ -349,31 +349,31 @@
 
 ### 📋 Week 5 체크리스트
 
-#### Day 1-2: Celery 분산 작업 큐
-- [ ] **Celery 설치 및 설정**
-  - [ ] Celery 및 관련 패키지 설치
-  - [ ] Redis를 메시지 브로커로 설정
-  - [ ] 워커 프로세스 설정 및 실행
-  - [ ] Flower 모니터링 도구 설치
+#### Day 1-2: Celery 분산 작업 큐 ✅ **완료**
+- [x] **Celery 설치 및 설정**
+  - [x] Celery 및 관련 패키지 설치 (`celery[redis]`, `flower`, `kombu`)
+  - [x] Redis를 메시지 브로커로 설정 (`core/celery_app.py`)
+  - [x] 워커 프로세스 설정 및 실행 (큐별 라우팅 설정)
+  - [x] Flower 모니터링 도구 설치
 
-- [ ] **비동기 작업 분리**
-  - [ ] 스크래핑 작업을 백그라운드로 이동
-  - [ ] 분석 작업 비동기 처리
-  - [ ] 이메일 발송 비동기 처리
-  - [ ] 파일 생성/처리 작업 분리
+- [x] **비동기 작업 분리** (`core/tasks.py` 구현 완료)
+  - [x] 스크래핑 작업을 백그라운드로 이동 (`scrape_product_data`, `scrape_and_analyze`)
+  - [x] 분석 작업 비동기 처리 (`analyze_market_data`, `generate_report`)
+  - [x] 이메일 발송 비동기 처리 (`send_notification_email`, `send_slack_notification`)
+  - [x] 파일 생성/처리 작업 분리 (`update_statistics`, `cleanup_old_data`)
 
-#### Day 3-4: 작업 큐 고도화
-- [ ] **작업 우선순위 및 라우팅**
-  - [ ] 우선순위 큐 구현 (high/normal/low)
-  - [ ] 작업 타입별 전용 워커 배치
-  - [ ] 라우팅 키를 통한 작업 분산
-  - [ ] 실패한 작업 재시도 정책
+#### Day 3-4: 작업 큐 고도화 ✅ **완료**
+- [x] **작업 우선순위 및 라우팅** - 완전 구현
+  - [x] 우선순위 큐 구현 (`Priority.CRITICAL/HIGH/NORMAL/LOW/BATCH`) (`core/priority_queue.py`)
+  - [x] 작업 타입별 전용 워커 배치 (5가지 워커 타입) (`core/worker_manager.py`)
+  - [x] 라우팅 키를 통한 작업 분산 (Topic Exchange 기반 `priority.queue.task` 패턴)
+  - [x] 실패한 작업 재시도 정책 (작업별 커스텀 재시도 설정)
 
-- [ ] **작업 상태 추적**
-  - [ ] 실시간 작업 진행률 추적
-  - [ ] 작업 결과 저장 및 조회
-  - [ ] 실패 작업 로그 및 알림
-  - [ ] 작업 시간 통계 수집
+- [x] **작업 상태 추적** - 완전 구현
+  - [x] 실시간 작업 진행률 추적 (Redis 기반 `TaskTracker`) (`core/task_tracker.py`)
+  - [x] 작업 결과 저장 및 조회 (Redis + WebSocket 실시간 업데이트)
+  - [x] 실패 작업 로그 및 알림 (Kafka 이벤트 기반)
+  - [x] 작업 시간 통계 수집 (큐별 성능 통계)
 
 #### Day 5-7: API 성능 최적화
 - [ ] **데이터베이스 최적화**
@@ -618,7 +618,7 @@ graph TB
 
 - [x] **Week 1-2 완료** (UI 현대화 & Redis 기본) ✅
 - [x] **Week 3-4 완료** (고급 캐싱 & Kafka & 실시간 데이터 파이프라인) ✅  
-- [ ] Week 5-6 완료 (대용량 트래픽 처리)
+- [x] **Week 5 Phase 1-2 완료** (Celery 분산 작업 큐 + 우선순위 시스템) ✅
 - [ ] Week 7-8 완료 (ML 파이프라인 & 통합)
 
 **현재 진행**: Week 5 시작 준비 완료! 🚀 다음은 대용량 트래픽 처리 시스템 구축

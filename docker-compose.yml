@@ -58,25 +58,21 @@ services:
 
   # Kafka Broker
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: wurstmeister/kafka:latest
     container_name: market_insights_kafka
     restart: always
     depends_on:
       zookeeper:
         condition: service_healthy
     environment:
-      KAFKA_BROKER_ID: 1
+      KAFKA_ADVERTISED_HOST_NAME: localhost
+      KAFKA_ADVERTISED_PORT: 9092
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
-      KAFKA_DELETE_TOPIC_ENABLE: true
+      KAFKA_BROKER_ID: 1
+      KAFKA_CREATE_TOPICS: "market-analysis-events:3:1,scraping-status-updates:2:1,user-notifications:1:1,statistics-events:2:1,user-actions:3:1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_DELETE_TOPIC_ENABLE: 'true'
       KAFKA_LOG_RETENTION_HOURS: 168
-      KAFKA_LOG_SEGMENT_BYTES: 1073741824
-      KAFKA_LOG_RETENTION_BYTES: 1073741824
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -85,10 +81,11 @@ services:
     networks:
       - market_insights_network
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   # Kafka UI (Web interface for monitoring)
   kafka-ui:

@@ -56,11 +56,11 @@ async def test_kafka_producer():
     # 4. 알림 이벤트 전송 테스트
     print("\n4. 알림 이벤트 전송 테스트")
     try:
-        kafka_manager.send_notification_event(
+        kafka_manager.send_notification(
+            user_id="test_user_123",
             notification_type="analysis_completed",
-            recipient="test@example.com",
-            subject="테스트 분석 완료",
-            data={"keyword": "test_keyword", "results": {"score": 85}}
+            title="테스트 분석 완료",
+            message="test_keyword 키워드 분석이 완료되었습니다."
         )
         print("   ✅ 알림 이벤트 전송 성공!")
     except Exception as e:
@@ -93,11 +93,9 @@ async def test_kafka_producer():
     try:
         kafka_manager.send_statistics_event(
             stat_type="system_metric",
-            data={
-                "metric_name": "cpu_usage",
-                "value": 75.5,
-                "timestamp": time.time()
-            }
+            metric_name="cpu_usage",
+            metric_value=75.5,
+            tags={"host": "test_server", "environment": "test"}
         )
         print("   ✅ 통계 이벤트 전송 성공!")
     except Exception as e:

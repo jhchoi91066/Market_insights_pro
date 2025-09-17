@@ -23,6 +23,7 @@ from core.kafka_manager import get_kafka_manager, KafkaManager
 from core.background_worker import start_background_worker
 from core.stream_processor import start_stream_processor, get_stream_processor
 from core.event_store import get_event_store_service, EventType
+from core.task_tracker import get_task_tracker
 
 # 로거 설정
 logger = logging.getLogger(__name__)
@@ -542,6 +543,163 @@ async def get_keyword_trends(keyword: str):
     except Exception as e:
         logger.error(f"❌ 키워드 트렌드 조회 실패: {e}")
         raise HTTPException(status_code=500, detail="키워드 트렌드 조회 중 오류가 발생했습니다.")
+
+# --- 🚀 작업 진행률 추적 API ---
+@app.get("/api/tasks/{task_id}/progress")
+async def get_task_progress(task_id: str):
+    """
+    📊 작업 진행률 조회 API
+
+    특정 작업의 실시간 진행 상황 조회
+    """
+    try:
+        tracker = get_task_tracker()
+        progress = tracker.get_task_progress(task_id)
+
+        if not progress:
+            raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+
+        return {
+            "status": "success",
+            "data": progress.to_dict()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 작업 진행률 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="작업 진행률 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/tasks/active")
+async def get_active_tasks():
+    """
+    📋 활성 작업 목록 조회 API
+
+    현재 실행 중인 모든 작업의 진행 상황 조회
+    """
+    try:
+        tracker = get_task_tracker()
+        active_tasks = tracker.get_all_active_tasks()
+
+        return {
+            "status": "success",
+            "data": {
+                "active_tasks": [task.to_dict() for task in active_tasks],
+                "total_count": len(active_tasks)
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 활성 작업 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="활성 작업 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/tasks/statistics")
+async def get_task_statistics():
+    """
+    📊 작업 통계 조회 API
+
+    전체 작업 실행 통계 및 현황
+    """
+    try:
+        tracker = get_task_tracker()
+        stats = tracker.get_task_statistics()
+
+        return {
+            "status": "success",
+            "data": stats
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 작업 통계 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="작업 통계 조회 중 오류가 발생했습니다.")
+
+@app.post("/api/tasks/cleanup")
+async def cleanup_completed_tasks(hours_old: int = 24):
+    """
+    🧹 완료된 작업 정리 API
+
+    지정된 시간보다 오래된 완료 작업들을 정리
+    """
+    try:
+        tracker = get_task_tracker()
+        cleaned_count = tracker.cleanup_completed_tasks(hours_old)
+
+        return {
+            "status": "success",
+            "data": {
+                "cleaned_tasks": cleaned_count,
+                "hours_old": hours_old,
+                "cleaned_at": datetime.now().isoformat()
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 작업 정리 실패: {e}")
+        raise HTTPException(status_code=500, detail="작업 정리 중 오류가 발생했습니다.")
+
+# --- 🚀 새로운 비동기 분석 API (Celery 기반) ---
+@app.post("/api/analyze/async")
+async def start_async_analysis(request: AnalysisRequest, http_request: Request):
+    """
+    🎯 비동기 시장 분석 시작 API
+
+    Celery를 사용한 백그라운드 분석 처리
+    사용자는 즉시 응답을 받고, 실제 작업은 백그라운드에서 처리
+    """
+    keyword = request.keyword.strip()
+
+    if not keyword:
+        raise HTTPException(status_code=400, detail="키워드를 입력해주세요.")
+
+    try:
+        # 사용자 액션 추적
+        client_ip = http_request.client.host
+        user_agent = http_request.headers.get("user-agent", "")
+        session_id = f"{client_ip}_{hash(user_agent) % 10000}"
+
+        if kafka_manager:
+            kafka_manager.send_user_action(
+                user_id=session_id,
+                action_type="async_analysis_request",
+                page_url=str(http_request.url),
+                data={
+                    "keyword": keyword,
+                    "api_endpoint": "/api/analyze/async"
+                }
+            )
+
+        # 캐시 확인
+        if cache_manager:
+            cached_result = cache_manager.get_analysis_result(keyword)
+            if cached_result:
+                return {
+                    "status": "completed",
+                    "task_id": "cached",
+                    "message": f"'{keyword}' 분석 결과가 캐시에서 발견되었습니다!",
+                    "result": cached_result
+                }
+
+        # Celery 작업 시작
+        from core.tasks import scrape_and_analyze
+
+        # 비동기 작업 시작
+        celery_result = scrape_and_analyze.delay(keyword, max_products=30)
+        task_id = celery_result.id
+
+        logger.info(f"🚀 비동기 분석 시작: {keyword} (Task ID: {task_id})")
+
+        return {
+            "status": "started",
+            "task_id": task_id,
+            "keyword": keyword,
+            "message": f"'{keyword}' 시장 분석이 백그라운드에서 시작되었습니다.",
+            "estimated_time_seconds": 90,
+            "progress_url": f"/api/tasks/{task_id}/progress"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 비동기 분석 시작 실패: {e}")
+        raise HTTPException(status_code=500, detail="분석 시작 중 오류가 발생했습니다.")
 
 if __name__ == "__main__":
     import uvicorn
