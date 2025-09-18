@@ -1,0 +1,178 @@
+# Prometheus 알림 규칙
+# Market Insights Pro 성능 및 가용성 모니터링
+
+groups:
+  # === 시스템 리소스 알림 ===
+  - name: system_alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: market_insights_system_cpu_percent > 80
+        for: 2m
+        labels:
+          severity: warning
+          service: market-insights
+        annotations:
+          summary: "높은 CPU 사용률 감지"
+          description: "CPU 사용률이 {{ $value }}%로 2분간 80%를 초과했습니다."
+
+      - alert: CriticalCPUUsage
+        expr: market_insights_system_cpu_percent > 95
+        for: 1m
+        labels:
+          severity: critical
+          service: market-insights
+        annotations:
+          summary: "매우 높은 CPU 사용률 감지"
+          description: "CPU 사용률이 {{ $value }}%로 1분간 95%를 초과했습니다. 즉시 조치가 필요합니다."
+
+      - alert: HighMemoryUsage
+        expr: market_insights_system_memory_percent > 85
+        for: 3m
+        labels:
+          severity: warning
+          service: market-insights
+        annotations:
+          summary: "높은 메모리 사용률 감지"
+          description: "메모리 사용률이 {{ $value }}%로 3분간 85%를 초과했습니다."
+
+      - alert: CriticalMemoryUsage
+        expr: market_insights_system_memory_percent > 95
+        for: 1m
+        labels:
+          severity: critical
+          service: market-insights
+        annotations:
+          summary: "메모리 부족 상황"
+          description: "메모리 사용률이 {{ $value }}%로 매우 높습니다. 즉시 조치가 필요합니다."
+
+      - alert: DiskSpaceWarning
+        expr: market_insights_system_disk_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: market-insights
+        annotations:
+          summary: "디스크 공간 부족 경고"
+          description: "디스크 사용률이 {{ $value }}%로 5분간 80%를 초과했습니다."
+
+      - alert: DiskSpaceCritical
+        expr: market_insights_system_disk_percent > 90
+        for: 2m
+        labels:
+          severity: critical
+          service: market-insights
+        annotations:
+          summary: "디스크 공간 심각 부족"
+          description: "디스크 사용률이 {{ $value }}%로 매우 높습니다. 즉시 정리가 필요합니다."
+
+  # === 애플리케이션 성능 알림 ===
+  - name: application_alerts
+    rules:
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(market_insights_http_request_duration_seconds_bucket[5m])) > 2.0
+        for: 3m
+        labels:
+          severity: warning
+          service: market-insights
+        annotations:
+          summary: "높은 응답 시간 감지"
+          description: "95번째 백분위수 응답 시간이 {{ $value }}초로 2초를 초과했습니다."
+
+      - alert: HighErrorRate
+        expr: rate(market_insights_http_requests_total{status_code=~"5.."}[5m]) / rate(market_insights_http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: market-insights
+        annotations:
+          summary: "높은 에러율 감지"
+          description: "HTTP 5xx 에러율이 {{ $value | humanizePercentage }}로 5%를 초과했습니다."
+
+      - alert: CriticalErrorRate
+        expr: rate(market_insights_http_requests_total{status_code=~"5.."}[5m]) / rate(market_insights_http_requests_total[5m]) > 0.20
+        for: 1m
+        labels:
+          severity: critical
+          service: market-insights
+        annotations:
+          summary: "매우 높은 에러율 감지"
+          description: "HTTP 5xx 에러율이 {{ $value | humanizePercentage }}로 20%를 초과했습니다."
+
+      - alert: DatabaseConnectionsHigh
+        expr: market_insights_db_connections_active > 50
+        for: 5m
+        labels:
+          severity: warning
+          service: market-insights
+        annotations:
+          summary: "높은 데이터베이스 연결 수"
+          description: "활성 데이터베이스 연결이 {{ $value }}개로 많습니다. 연결 누수를 확인하세요."
+
+  # === 비즈니스 메트릭 알림 ===
+  - name: business_alerts
+    rules:
+      - alert: LowAnalysisRequestRate
+        expr: rate(market_insights_analysis_requests_total[10m]) < 0.01
+        for: 10m
+        labels:
+          severity: info
+          service: market-insights
+        annotations:
+          summary: "분석 요청 수 감소"
+          description: "지난 10분간 분석 요청률이 {{ $value }}/초로 낮습니다."
+
+      - alert: HighFailedTasks
+        expr: rate(market_insights_celery_tasks_total{status="failed"}[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: market-insights
+        annotations:
+          summary: "높은 Celery 작업 실패율"
+          description: "Celery 작업 실패율이 {{ $value }}/초로 높습니다."
+
+  # === 서비스 가용성 알림 ===
+  - name: availability_alerts
+    rules:
+      - alert: ServiceDown
+        expr: up{job="market-insights-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: market-insights
+        annotations:
+          summary: "Market Insights Pro 서비스 다운"
+          description: "Market Insights Pro 애플리케이션이 1분간 응답하지 않습니다."
+
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "Prometheus 서비스 다운"
+          description: "Prometheus 모니터링 서비스가 응답하지 않습니다."
+
+  # === 캐시 성능 알림 ===
+  - name: cache_alerts
+    rules:
+      - alert: LowCacheHitRate
+        expr: market_insights_cache_hit_rate < 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: market-insights
+        annotations:
+          summary: "낮은 캐시 히트율"
+          description: "캐시 히트율이 {{ $value | humanizePercentage }}로 50% 미만입니다."
+
+      - alert: CacheMemoryHigh
+        expr: market_insights_cache_operations_total > 10000
+        for: 10m
+        labels:
+          severity: info
+          service: market-insights
+        annotations:
+          summary: "높은 캐시 사용량"
+          description: "캐시 작업 수가 {{ $value }}개로 많습니다."

@@ -1,0 +1,134 @@
+# AlertManager 설정 파일
+# Market Insights Pro 알림 라우팅 및 발송 설정
+
+global:
+  # SMTP 서버 설정 (이메일 알림용)
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@market-insights.com'
+  smtp_auth_username: 'alerts@market-insights.com'
+  smtp_auth_password: 'your-email-password'
+
+  # Slack Webhook URL (환경변수로 설정 권장)
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+# 알림 그룹화 및 억제 설정
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s        # 그룹 내 첫 알림 대기 시간
+  group_interval: 10s    # 그룹 내 추가 알림 간격
+  repeat_interval: 1h    # 알림 반복 간격
+  receiver: 'default'    # 기본 수신자
+
+  # 라우팅 규칙
+  routes:
+    # 중요 알림 (즉시 발송)
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      group_interval: 5s
+      repeat_interval: 5m
+
+    # 경고 알림 (5분 대기 후 발송)
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 5m
+      group_interval: 10s
+      repeat_interval: 30m
+
+    # 정보성 알림 (1시간 대기 후 발송)
+    - match:
+        severity: info
+      receiver: 'info-alerts'
+      group_wait: 1h
+      group_interval: 1h
+      repeat_interval: 24h
+
+# 알림 억제 규칙
+inhibit_rules:
+  # 서비스가 다운되면 다른 모든 알림 억제
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match:
+      service: 'market-insights'
+    equal: ['service']
+
+  # Critical 알림이 있으면 Warning 알림 억제
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+
+# 수신자 설정
+receivers:
+  # 기본 수신자 (로그만)
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://host.docker.internal:8001/api/alerts/webhook'
+        send_resolved: true
+
+  # 중요 알림 수신자
+  - name: 'critical-alerts'
+    # 이메일 알림
+    email_configs:
+      - to: 'admin@market-insights.com'
+        subject: '🚨 [CRITICAL] Market Insights Pro Alert'
+        body: |
+          Alert: {{ .GroupLabels.alertname }}
+          Service: {{ .GroupLabels.service }}
+          Severity: {{ .CommonLabels.severity }}
+
+          Description: {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+
+          Time: {{ .CommonAnnotations.timestamp }}
+        html: |
+          <h2>🚨 Critical Alert</h2>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Service:</strong> {{ .GroupLabels.service }}</p>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Description:</strong> {{ range .Alerts }}{{ .Annotations.description }}{{ end }}</p>
+
+    # Slack 알림
+    slack_configs:
+      - api_url: '{{ .slack_api_url }}'
+        channel: '#alerts'
+        title: '🚨 Critical Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Service:* {{ .GroupLabels.service }}
+          *Severity:* {{ .CommonLabels.severity }}
+          *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+        color: 'danger'
+        send_resolved: true
+
+    # Webhook 알림 (자체 시스템)
+    webhook_configs:
+      - url: 'http://host.docker.internal:8001/api/alerts/webhook'
+        send_resolved: true
+
+  # 경고 알림 수신자
+  - name: 'warning-alerts'
+    slack_configs:
+      - api_url: '{{ .slack_api_url }}'
+        channel: '#warnings'
+        title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+        text: |
+          *Service:* {{ .GroupLabels.service }}
+          *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+        color: 'warning'
+        send_resolved: true
+
+    webhook_configs:
+      - url: 'http://host.docker.internal:8001/api/alerts/webhook'
+        send_resolved: true
+
+  # 정보성 알림 수신자
+  - name: 'info-alerts'
+    webhook_configs:
+      - url: 'http://host.docker.internal:8001/api/alerts/webhook'
+        send_resolved: true
+
+# 알림 템플릿 설정
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

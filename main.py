@@ -5,7 +5,7 @@
 """
 from typing import List, Tuple
 from fastapi import FastAPI, HTTPException, Request, Form, WebSocket, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -24,6 +24,13 @@ from core.background_worker import start_background_worker
 from core.stream_processor import start_stream_processor, get_stream_processor
 from core.event_store import get_event_store_service, EventType
 from core.task_tracker import get_task_tracker
+from core.database_optimizer import get_database_optimizer
+from core.api_optimizer import get_api_optimizer, parse_pagination_params, PaginationParams
+from core.connection_pool import get_connection_pool, get_read_replica_simulator
+from core.metrics_collector import get_metrics_collector, record_http_request_metric, record_analysis_request_metric
+from core.health_checks import get_health_status, is_healthy
+from prometheus_client import CONTENT_TYPE_LATEST
+import time
 
 # 로거 설정
 logger = logging.getLogger(__name__)
@@ -33,6 +40,38 @@ app = FastAPI(
     description="Amazon product market analysis and competition research tool",
     version="1.2.0", # 버전 업데이트
 )
+
+# === 📊 메트릭 수집 미들웨어 ===
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """HTTP 요청 메트릭 수집 미들웨어"""
+    start_time = time.time()
+
+    # 요청 처리
+    response = await call_next(request)
+
+    # 메트릭 기록
+    duration = time.time() - start_time
+    method = request.method
+    endpoint = request.url.path
+    status_code = response.status_code
+
+    # 사용자 세션 추적
+    client_ip = request.client.host
+    user_agent = request.headers.get("user-agent", "")
+    session_id = f"{client_ip}_{hash(user_agent) % 10000}"
+
+    try:
+        record_http_request_metric(method, endpoint, status_code, duration)
+
+        # 사용자 세션 기록
+        metrics_collector = get_metrics_collector()
+        metrics_collector.record_user_session(session_id)
+
+    except Exception as e:
+        logger.debug(f"메트릭 기록 실패: {e}")
+
+    return response
 
 # --- 전역 인스턴스 및 설정 ---
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -686,6 +725,9 @@ async def start_async_analysis(request: AnalysisRequest, http_request: Request):
         celery_result = scrape_and_analyze.delay(keyword, max_products=30)
         task_id = celery_result.id
 
+        # 분석 요청 메트릭 기록
+        record_analysis_request_metric(keyword)
+
         logger.info(f"🚀 비동기 분석 시작: {keyword} (Task ID: {task_id})")
 
         return {
@@ -700,6 +742,871 @@ async def start_async_analysis(request: AnalysisRequest, http_request: Request):
     except Exception as e:
         logger.error(f"❌ 비동기 분석 시작 실패: {e}")
         raise HTTPException(status_code=500, detail="분석 시작 중 오류가 발생했습니다.")
+
+# === 🗄️ 데이터베이스 최적화 API ===
+
+@app.get("/api/database/health")
+async def database_health_check():
+    """
+    🏥 데이터베이스 건강 상태 확인 API
+
+    성능 지표, 쿼리 통계, 연결 풀 상태 등을 제공
+    """
+    try:
+        db_optimizer = get_database_optimizer()
+        health_status = db_optimizer.run_health_check()
+
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "data": health_status
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 데이터베이스 헬스체크 실패: {e}")
+        raise HTTPException(status_code=500, detail="데이터베이스 헬스체크 중 오류가 발생했습니다.")
+
+@app.post("/api/database/optimize")
+async def optimize_database():
+    """
+    ⚡ 데이터베이스 최적화 실행 API
+
+    인덱스 생성, VACUUM, ANALYZE 등 최적화 작업 수행
+    """
+    try:
+        db_optimizer = get_database_optimizer()
+        optimization_results = db_optimizer.optimize_database()
+
+        logger.info("🚀 데이터베이스 최적화 완료")
+
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "message": "데이터베이스 최적화가 완료되었습니다.",
+            "data": optimization_results
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 데이터베이스 최적화 실패: {e}")
+        raise HTTPException(status_code=500, detail="데이터베이스 최적화 중 오류가 발생했습니다.")
+
+@app.get("/api/database/query-stats")
+async def get_query_statistics():
+    """
+    📊 쿼리 성능 통계 조회 API
+
+    실행 시간, 빈도, 느린 쿼리 등의 정보 제공
+    """
+    try:
+        db_optimizer = get_database_optimizer()
+        query_stats = db_optimizer.query_analyzer.get_query_statistics()
+        optimization_suggestions = db_optimizer.query_analyzer.get_optimization_suggestions()
+
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "data": {
+                "statistics": query_stats,
+                "optimization_suggestions": optimization_suggestions
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 쿼리 통계 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="쿼리 통계 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/database/tables/{table_name}/analyze")
+async def analyze_table(table_name: str):
+    """
+    🔍 특정 테이블 분석 API
+
+    테이블별 사용 패턴, 인덱스 상태, 최적화 제안 제공
+    """
+    allowed_tables = ['products', 'scraping_sessions', 'analysis_results']
+
+    if table_name not in allowed_tables:
+        raise HTTPException(
+            status_code=400,
+            detail=f"허용되지 않은 테이블입니다. 사용 가능: {', '.join(allowed_tables)}"
+        )
+
+    try:
+        db_optimizer = get_database_optimizer()
+        table_analysis = db_optimizer.index_optimizer.analyze_table_usage(table_name)
+        index_suggestions = db_optimizer.index_optimizer.suggest_indexes(table_name)
+
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "table_name": table_name,
+            "data": {
+                "analysis": table_analysis,
+                "index_suggestions": index_suggestions
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 테이블 {table_name} 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"테이블 {table_name} 분석 중 오류가 발생했습니다.")
+
+@app.post("/api/database/tables/{table_name}/create-indexes")
+async def create_table_indexes(table_name: str):
+    """
+    🔧 테이블 인덱스 생성 API
+
+    특정 테이블에 권장 인덱스를 생성
+    """
+    allowed_tables = ['products', 'scraping_sessions', 'analysis_results']
+
+    if table_name not in allowed_tables:
+        raise HTTPException(
+            status_code=400,
+            detail=f"허용되지 않은 테이블입니다. 사용 가능: {', '.join(allowed_tables)}"
+        )
+
+    try:
+        db_optimizer = get_database_optimizer()
+        index_results = db_optimizer.index_optimizer.create_recommended_indexes(table_name)
+
+        logger.info(f"🔧 테이블 {table_name} 인덱스 생성 완료")
+
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "table_name": table_name,
+            "message": f"테이블 {table_name}의 인덱스가 생성되었습니다.",
+            "data": index_results
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 테이블 {table_name} 인덱스 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"테이블 {table_name} 인덱스 생성 중 오류가 발생했습니다.")
+
+# === 🚀 최적화된 API 엔드포인트 (페이지네이션, 압축, 캐싱) ===
+
+@app.get("/api/v2/products")
+async def get_products_optimized(request: Request):
+    """
+    📦 최적화된 상품 목록 조회 API v2
+
+    - 페이지네이션 지원 (page, size 파라미터)
+    - gzip 응답 압축
+    - ETag/Last-Modified 기반 조건부 요청
+    - 메모리 캐싱
+    """
+    try:
+        api_optimizer = get_api_optimizer()
+        pagination_params = parse_pagination_params(request)
+
+        # 필터 파라미터
+        category = request.query_params.get('category')
+        min_price = request.query_params.get('min_price')
+        max_price = request.query_params.get('max_price')
+        min_rating = request.query_params.get('min_rating')
+
+        # 캐시 키 생성
+        cache_key = f"products_{pagination_params.page}_{pagination_params.size}_{category}_{min_price}_{max_price}_{min_rating}"
+
+        # SQLite에서 데이터 조회 (필터 적용)
+        from core.models import db_manager, Product
+        session = db_manager.get_session()
+
+        try:
+            query = session.query(Product)
+
+            # 필터 적용
+            if category:
+                query = query.filter(Product.product_category.ilike(f'%{category}%'))
+            if min_price:
+                query = query.filter(Product.discounted_price >= float(min_price))
+            if max_price:
+                query = query.filter(Product.discounted_price <= float(max_price))
+            if min_rating:
+                query = query.filter(Product.product_rating >= float(min_rating))
+
+            # 총 개수 조회
+            total_count = query.count()
+
+            # 정렬 적용 (최신순)
+            query = query.order_by(Product.scraped_at.desc())
+
+            # 페이지네이션 적용 (SQLAlchemy 쿼리 레벨에서)
+            offset = (pagination_params.page - 1) * pagination_params.size
+            products = query.offset(offset).limit(pagination_params.size).all()
+
+            # 딕셔너리로 변환
+            products_data = [
+                {
+                    'id': p.id,
+                    'product_id': p.product_id,
+                    'title': p.product_title,
+                    'category': p.product_category,
+                    'price': p.discounted_price,
+                    'rating': p.product_rating,
+                    'reviews': p.total_reviews,
+                    'is_prime': p.is_prime,
+                    'brand': p.brand,
+                    'scraped_at': p.scraped_at.isoformat() if p.scraped_at else None
+                }
+                for p in products
+            ]
+
+            # 최신 업데이트 시간 조회
+            latest_product = session.query(Product).order_by(Product.scraped_at.desc()).first()
+            last_modified = latest_product.scraped_at if latest_product else None
+
+        finally:
+            session.close()
+
+        # 최적화된 응답 생성
+        return api_optimizer.optimize_list_response(
+            data=products_data,
+            request=request,
+            pagination_params=pagination_params,
+            total_count=total_count,
+            last_modified=last_modified,
+            cache_key=cache_key
+        )
+
+    except Exception as e:
+        logger.error(f"❌ 최적화된 상품 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="상품 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/v2/analysis-results")
+async def get_analysis_results_optimized(request: Request):
+    """
+    📊 최적화된 분석 결과 조회 API v2
+
+    - 페이지네이션 지원
+    - 카테고리/날짜 필터링
+    - 응답 압축 및 캐싱
+    """
+    try:
+        api_optimizer = get_api_optimizer()
+        pagination_params = parse_pagination_params(request)
+
+        # 필터 파라미터
+        category = request.query_params.get('category')
+        analysis_type = request.query_params.get('type')
+        from_date = request.query_params.get('from_date')
+        to_date = request.query_params.get('to_date')
+
+        # 캐시 키
+        cache_key = f"analysis_{pagination_params.page}_{pagination_params.size}_{category}_{analysis_type}_{from_date}_{to_date}"
+
+        # 데이터 조회
+        from core.models import db_manager, AnalysisResult
+        session = db_manager.get_session()
+
+        try:
+            query = session.query(AnalysisResult)
+
+            # 필터 적용
+            if category:
+                query = query.filter(AnalysisResult.category.ilike(f'%{category}%'))
+            if analysis_type:
+                query = query.filter(AnalysisResult.analysis_type == analysis_type)
+            if from_date:
+                from datetime import datetime
+                start_date = datetime.fromisoformat(from_date)
+                query = query.filter(AnalysisResult.created_at >= start_date)
+            if to_date:
+                end_date = datetime.fromisoformat(to_date)
+                query = query.filter(AnalysisResult.created_at <= end_date)
+
+            total_count = query.count()
+
+            # 최신순 정렬
+            query = query.order_by(AnalysisResult.created_at.desc())
+
+            # 페이지네이션
+            offset = (pagination_params.page - 1) * pagination_params.size
+            results = query.offset(offset).limit(pagination_params.size).all()
+
+            # 데이터 변환
+            results_data = [
+                {
+                    'id': r.id,
+                    'category': r.category,
+                    'analysis_type': r.analysis_type,
+                    'results': r.results,
+                    'input_params': r.input_params,
+                    'created_at': r.created_at.isoformat() if r.created_at else None
+                }
+                for r in results
+            ]
+
+            # 최신 업데이트 시간
+            latest_result = session.query(AnalysisResult).order_by(AnalysisResult.created_at.desc()).first()
+            last_modified = latest_result.created_at if latest_result else None
+
+        finally:
+            session.close()
+
+        return api_optimizer.optimize_list_response(
+            data=results_data,
+            request=request,
+            pagination_params=pagination_params,
+            total_count=total_count,
+            last_modified=last_modified,
+            cache_key=cache_key
+        )
+
+    except Exception as e:
+        logger.error(f"❌ 최적화된 분석 결과 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="분석 결과 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/v2/scraping-sessions")
+async def get_scraping_sessions_optimized(request: Request):
+    """
+    🕷️ 최적화된 스크래핑 세션 조회 API v2
+
+    - 페이지네이션 및 필터링
+    - 세션 상태별 조회
+    """
+    try:
+        api_optimizer = get_api_optimizer()
+        pagination_params = parse_pagination_params(request)
+
+        # 필터 파라미터
+        keyword = request.query_params.get('keyword')
+        status = request.query_params.get('status')
+
+        cache_key = f"sessions_{pagination_params.page}_{pagination_params.size}_{keyword}_{status}"
+
+        # 데이터 조회
+        from core.models import db_manager, ScrapingSession
+        session = db_manager.get_session()
+
+        try:
+            query = session.query(ScrapingSession)
+
+            if keyword:
+                query = query.filter(ScrapingSession.keyword.ilike(f'%{keyword}%'))
+            if status:
+                query = query.filter(ScrapingSession.session_status == status)
+
+            total_count = query.count()
+            query = query.order_by(ScrapingSession.started_at.desc())
+
+            offset = (pagination_params.page - 1) * pagination_params.size
+            sessions = query.offset(offset).limit(pagination_params.size).all()
+
+            sessions_data = [
+                {
+                    'id': s.id,
+                    'keyword': s.keyword,
+                    'products_found': s.products_found,
+                    'products_saved': s.products_saved,
+                    'session_status': s.session_status,
+                    'error_message': s.error_message,
+                    'started_at': s.started_at.isoformat() if s.started_at else None,
+                    'completed_at': s.completed_at.isoformat() if s.completed_at else None
+                }
+                for s in sessions
+            ]
+
+            latest_session = session.query(ScrapingSession).order_by(ScrapingSession.started_at.desc()).first()
+            last_modified = latest_session.started_at if latest_session else None
+
+        finally:
+            session.close()
+
+        return api_optimizer.optimize_list_response(
+            data=sessions_data,
+            request=request,
+            pagination_params=pagination_params,
+            total_count=total_count,
+            last_modified=last_modified,
+            cache_key=cache_key
+        )
+
+    except Exception as e:
+        logger.error(f"❌ 최적화된 세션 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="세션 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/v2/cache/stats")
+async def get_api_cache_stats():
+    """
+    📈 API 캐시 통계 조회
+    """
+    try:
+        api_optimizer = get_api_optimizer()
+        cache_stats = api_optimizer.get_cache_stats()
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'data': cache_stats
+        }
+
+    except Exception as e:
+        logger.error(f"❌ API 캐시 통계 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="캐시 통계 조회 중 오류가 발생했습니다.")
+
+@app.post("/api/v2/cache/clear")
+async def clear_api_cache(pattern: str = None):
+    """
+    🧹 API 캐시 정리
+    """
+    try:
+        api_optimizer = get_api_optimizer()
+        api_optimizer.clear_cache(pattern)
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'message': f"캐시가 정리되었습니다. 패턴: {pattern or '전체'}"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ API 캐시 정리 실패: {e}")
+        raise HTTPException(status_code=500, detail="캐시 정리 중 오류가 발생했습니다.")
+
+# === 🔗 연결 풀 관리 API ===
+
+@app.get("/api/database/connection-pool/stats")
+async def get_connection_pool_stats():
+    """
+    📊 데이터베이스 연결 풀 통계 조회
+
+    활성 연결 수, 읽기/쓰기 연결 분리 통계 등
+    """
+    try:
+        connection_pool = get_connection_pool()
+        pool_stats = connection_pool.get_pool_stats()
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'data': pool_stats
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 연결 풀 통계 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="연결 풀 통계 조회 중 오류가 발생했습니다.")
+
+@app.post("/api/database/connection-pool/test")
+async def test_connection_pool():
+    """
+    🧪 연결 풀 성능 테스트
+
+    읽기/쓰기 연결 분리 및 성능 테스트 실행
+    """
+    try:
+        connection_pool = get_connection_pool()
+        simulator = get_read_replica_simulator()
+
+        # 성능 테스트 실행
+        import time
+
+        test_results = {
+            'read_test': {},
+            'write_test': {},
+            'concurrent_test': {}
+        }
+
+        # 읽기 성능 테스트
+        start_time = time.time()
+        read_results = connection_pool.execute_read_query(
+            "SELECT COUNT(*) as count FROM products"
+        )
+        read_time = time.time() - start_time
+
+        test_results['read_test'] = {
+            'duration_ms': round(read_time * 1000, 2),
+            'result_count': len(read_results),
+            'connection_type': 'read_only'
+        }
+
+        # 스마트 라우팅 테스트
+        start_time = time.time()
+        smart_results = simulator.execute_smart_query(
+            "SELECT * FROM products LIMIT 5"
+        )
+        smart_time = time.time() - start_time
+
+        test_results['smart_routing_test'] = {
+            'duration_ms': round(smart_time * 1000, 2),
+            'result_count': len(smart_results),
+            'auto_routed_to': 'read_only'
+        }
+
+        # 연결 풀 통계
+        pool_stats = connection_pool.get_pool_stats()
+        test_results['pool_stats_after_test'] = pool_stats
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'message': '연결 풀 테스트가 완료되었습니다.',
+            'data': test_results
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 연결 풀 테스트 실패: {e}")
+        raise HTTPException(status_code=500, detail="연결 풀 테스트 중 오류가 발생했습니다.")
+
+@app.get("/api/database/read-replica/status")
+async def get_read_replica_status():
+    """
+    📖 읽기 복제본 시뮬레이터 상태 조회
+
+    SQLite에서의 읽기 최적화 상태 확인
+    """
+    try:
+        connection_pool = get_connection_pool()
+        simulator = get_read_replica_simulator()
+
+        # 읽기 연결 상태 확인
+        pool_stats = connection_pool.get_pool_stats()
+
+        read_replica_status = {
+            'simulator_active': True,
+            'read_connections_available': pool_stats['read_connections_active'],
+            'total_read_queries': pool_stats['read_queries'],
+            'total_write_queries': pool_stats['write_queries'],
+            'read_write_ratio': (
+                pool_stats['read_queries'] / pool_stats['write_queries']
+                if pool_stats['write_queries'] > 0 else 0
+            ),
+            'optimization_status': 'SQLite WAL 모드로 읽기 최적화 활성',
+            'recommendations': []
+        }
+
+        # 성능 권장사항
+        if pool_stats['read_queries'] > pool_stats['write_queries'] * 5:
+            read_replica_status['recommendations'].append(
+                "읽기 요청이 많습니다. 읽기 연결 수 증가를 고려하세요."
+            )
+
+        if pool_stats['connection_timeouts'] > 0:
+            read_replica_status['recommendations'].append(
+                f"연결 타임아웃이 {pool_stats['connection_timeouts']}회 발생했습니다. "
+                "연결 풀 크기 증가를 고려하세요."
+            )
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'data': read_replica_status
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 읽기 복제본 상태 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="읽기 복제본 상태 조회 중 오류가 발생했습니다.")
+
+# === 📊 성능 메트릭 및 모니터링 API ===
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """
+    📈 Prometheus 메트릭 엔드포인트
+
+    Prometheus가 스크래핑할 수 있는 형식으로 메트릭 제공
+    """
+    try:
+        metrics_collector = get_metrics_collector()
+        metrics_data = metrics_collector.export_prometheus_metrics()
+
+        return Response(
+            content=metrics_data,
+            media_type=CONTENT_TYPE_LATEST
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Prometheus 메트릭 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail="메트릭 생성 중 오류가 발생했습니다.")
+
+# === 🏥 헬스체크 엔드포인트 ===
+@app.get("/health")
+async def health_check():
+    """
+    🏥 간단한 헬스체크 엔드포인트
+
+    로드 밸런서와 컨테이너 오케스트레이션을 위한 기본 상태 확인
+    """
+    try:
+        is_app_healthy = await is_healthy()
+
+        if is_app_healthy:
+            return JSONResponse(
+                status_code=200,
+                content={"status": "healthy", "timestamp": datetime.now().isoformat()}
+            )
+        else:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unhealthy", "timestamp": datetime.now().isoformat()}
+            )
+
+    except Exception as e:
+        logger.error(f"❌ 헬스체크 실패: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "error": str(e), "timestamp": datetime.now().isoformat()}
+        )
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """
+    🏥 상세 헬스체크 엔드포인트
+
+    모든 컴포넌트의 상세한 상태 정보 제공
+    """
+    try:
+        health_status = await get_health_status()
+
+        status_code = 200
+        if health_status["overall_status"] == "unhealthy":
+            status_code = 503
+        elif health_status["overall_status"] == "degraded":
+            status_code = 206  # Partial Content
+
+        return JSONResponse(
+            status_code=status_code,
+            content=health_status
+        )
+
+    except Exception as e:
+        logger.error(f"❌ 상세 헬스체크 실패: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "overall_status": "error",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+
+@app.get("/api/metrics/current")
+async def get_current_metrics():
+    """
+    📊 현재 시스템 메트릭 조회 API
+
+    실시간 시스템 상태 및 성능 지표 제공
+    """
+    try:
+        metrics_collector = get_metrics_collector()
+        current_metrics = metrics_collector.get_current_metrics()
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'data': current_metrics
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 현재 메트릭 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="메트릭 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/metrics/history")
+async def get_metrics_history(minutes: int = 60):
+    """
+    📈 메트릭 히스토리 조회 API
+
+    지정된 기간의 성능 지표 변화 추이 제공
+    """
+    if minutes > 1440:  # 24시간 제한
+        raise HTTPException(status_code=400, detail="최대 24시간(1440분) 기간만 조회 가능합니다.")
+
+    try:
+        metrics_collector = get_metrics_collector()
+        history = metrics_collector.get_metrics_history(minutes)
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'period_minutes': minutes,
+            'data_points': len(history),
+            'data': history
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 메트릭 히스토리 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="메트릭 히스토리 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/metrics/collection-stats")
+async def get_metrics_collection_stats():
+    """
+    🔍 메트릭 수집 통계 조회 API
+
+    메트릭 수집기의 상태 및 성능 통계 제공
+    """
+    try:
+        metrics_collector = get_metrics_collector()
+        collection_stats = metrics_collector.get_collection_stats()
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'data': collection_stats
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 메트릭 수집 통계 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="수집 통계 조회 중 오류가 발생했습니다.")
+
+@app.get("/api/metrics/summary")
+async def get_metrics_summary():
+    """
+    📋 메트릭 요약 조회 API
+
+    주요 성능 지표 요약 및 알림 정보 제공
+    """
+    try:
+        metrics_collector = get_metrics_collector()
+        current_metrics = metrics_collector.get_current_metrics()
+
+        if not current_metrics:
+            raise HTTPException(status_code=503, detail="메트릭 데이터가 없습니다.")
+
+        system = current_metrics.get('system', {})
+        application = current_metrics.get('application', {})
+        business = current_metrics.get('business', {})
+
+        # 성능 상태 평가
+        performance_status = "healthy"
+        alerts = []
+
+        # CPU 사용률 검사
+        cpu_percent = system.get('cpu_percent', 0)
+        if cpu_percent > 80:
+            performance_status = "warning"
+            alerts.append(f"높은 CPU 사용률: {cpu_percent:.1f}%")
+
+        # 메모리 사용률 검사
+        memory_percent = system.get('memory_percent', 0)
+        if memory_percent > 85:
+            performance_status = "critical"
+            alerts.append(f"높은 메모리 사용률: {memory_percent:.1f}%")
+
+        # 디스크 사용률 검사
+        disk_percent = system.get('disk_percent', 0)
+        if disk_percent > 90:
+            performance_status = "critical"
+            alerts.append(f"디스크 공간 부족: {disk_percent:.1f}%")
+
+        # 데이터베이스 연결 검사
+        db_connections = application.get('db_active_connections', 0)
+        if db_connections > 50:  # 임계값
+            performance_status = "warning"
+            alerts.append(f"많은 DB 연결: {db_connections}개")
+
+        summary = {
+            'performance_status': performance_status,
+            'alerts': alerts,
+            'key_metrics': {
+                'cpu_percent': cpu_percent,
+                'memory_percent': memory_percent,
+                'disk_percent': disk_percent,
+                'active_db_connections': db_connections,
+                'total_analysis_requests': business.get('analysis_requests', 0),
+                'api_cache_hit_rate': application.get('api_cache_hit_rate', 0),
+            },
+            'collection_info': metrics_collector.get_collection_stats()
+        }
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'data': summary
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 메트릭 요약 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="메트릭 요약 조회 중 오류가 발생했습니다.")
+
+@app.post("/api/metrics/record-event")
+async def record_business_event(event_type: str, count: int = 1):
+    """
+    📝 비즈니스 이벤트 기록 API
+
+    사용자 정의 이벤트를 메트릭으로 기록
+    """
+    if not event_type or count < 1:
+        raise HTTPException(status_code=400, detail="유효하지 않은 이벤트 타입 또는 카운트입니다.")
+
+    try:
+        metrics_collector = get_metrics_collector()
+        metrics_collector.record_business_event(event_type, count)
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'message': f"이벤트 '{event_type}' {count}회 기록됨"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 비즈니스 이벤트 기록 실패: {e}")
+        raise HTTPException(status_code=500, detail="이벤트 기록 중 오류가 발생했습니다.")
+
+# === 🚨 알림 웹훅 엔드포인트 ===
+
+@app.post("/api/alerts/webhook")
+async def receive_alert_webhook(request: Request):
+    """
+    🚨 AlertManager 웹훅 수신 엔드포인트
+
+    Prometheus AlertManager에서 발송된 알림을 수신하고 처리
+    """
+    try:
+        alert_data = await request.json()
+
+        # 알림 데이터 로깅
+        logger.info(f"🚨 알림 수신: {len(alert_data.get('alerts', []))}개")
+
+        for alert in alert_data.get('alerts', []):
+            status = alert.get('status', 'unknown')
+            alert_name = alert.get('labels', {}).get('alertname', 'Unknown')
+            severity = alert.get('labels', {}).get('severity', 'unknown')
+            description = alert.get('annotations', {}).get('description', '')
+
+            log_message = f"📢 [{severity.upper()}] {alert_name}: {description}"
+
+            if severity == 'critical':
+                logger.error(log_message)
+            elif severity == 'warning':
+                logger.warning(log_message)
+            else:
+                logger.info(log_message)
+
+            # 비즈니스 메트릭 기록
+            metrics_collector = get_metrics_collector()
+            metrics_collector.record_business_event(f'alert_{severity}')
+
+            # 중요 알림의 경우 추가 처리
+            if severity == 'critical' and status == 'firing':
+                await handle_critical_alert(alert)
+
+        return {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat(),
+            'alerts_processed': len(alert_data.get('alerts', []))
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 알림 웹훅 처리 실패: {e}")
+        raise HTTPException(status_code=500, detail="알림 처리 중 오류가 발생했습니다.")
+
+async def handle_critical_alert(alert: Dict[str, Any]):
+    """중요 알림 처리 로직"""
+    alert_name = alert.get('labels', {}).get('alertname', 'Unknown')
+
+    # 자동 복구 시도
+    if alert_name == 'HighMemoryUsage':
+        logger.info("🔧 메모리 정리 시작...")
+        # 캐시 정리
+        try:
+            api_optimizer = get_api_optimizer()
+            api_optimizer.clear_cache()
+            logger.info("✅ API 캐시 정리 완료")
+        except Exception as e:
+            logger.error(f"캐시 정리 실패: {e}")
+
+    elif alert_name == 'HighCPUUsage':
+        logger.info("🔧 CPU 부하 감소 시도...")
+        # 추가 최적화 로직 구현 가능
 
 if __name__ == "__main__":
     import uvicorn

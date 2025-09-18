@@ -1,0 +1,85 @@
+# Development Docker Compose Override
+# Market Insights Pro - Development Setup
+
+version: '3.8'
+
+services:
+  # Development Application Server
+  app:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+    depends_on:
+      - redis
+      - kafka
+
+  # Development Celery Worker
+  celery-worker:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    command: ["celery", "-A", "core.celery_app", "worker", "--loglevel=debug", "--concurrency=2"]
+    depends_on:
+      - redis
+      - kafka
+
+  # Development Celery Beat
+  celery-beat:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    command: ["celery", "-A", "core.celery_app", "beat", "--loglevel=debug"]
+    depends_on:
+      - redis
+      - kafka
+
+  # Development Flower
+  flower:
+    build:
+      context: .
+      target: development
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    command: ["celery", "-A", "core.celery_app", "flower", "--port=5555"]
+    depends_on:
+      - redis

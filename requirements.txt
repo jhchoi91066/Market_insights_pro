@@ -1,16 +1,65 @@
-pandas
-psycopg2-binary
-fastapi
-uvicorn[standard]
-playwright
-beautifulsoup4
-sqlalchemy
-alembic
-jinja2
-python-multipart
-redis
-httpx
-kafka-python
-celery[redis]
-flower
-kombu
+# Market Insights Pro - Python Dependencies
+# Production requirements
+
+# === Core Framework ===
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+jinja2==3.1.2
+python-multipart==0.0.6
+
+# === Database ===
+sqlalchemy==2.0.23
+alembic==1.13.1
+
+# === Cache & Message Queue ===
+redis==5.0.1
+hiredis==2.2.3
+
+# === Task Queue ===
+celery[redis]==5.3.4
+flower==2.0.1
+kombu==5.3.4
+
+# === Message Streaming ===
+kafka-python==2.0.2
+
+# === Web Scraping ===
+playwright==1.40.0
+beautifulsoup4==4.12.2
+requests==2.31.0
+lxml==4.9.3
+
+# === Data Processing ===
+pandas==2.1.4
+numpy==1.24.4
+
+# === Monitoring & Metrics ===
+prometheus-client==0.19.0
+psutil==5.9.6
+
+# === Load Testing ===
+locust==2.17.0
+
+# === HTTP Client ===
+httpx==0.25.2
+aiohttp==3.9.1
+
+# === Configuration ===
+python-dotenv==1.0.0
+
+# === Logging ===
+structlog==23.2.0
+
+# === Development Tools ===
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+
+# === Type Hints ===
+typing-extensions==4.8.0
+
+# === Security ===
+cryptography==41.0.8

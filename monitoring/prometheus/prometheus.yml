@@ -1,0 +1,66 @@
+# Prometheus 설정 파일
+# Market Insights Pro 모니터링 구성
+
+global:
+  scrape_interval: 15s     # 기본 스크래핑 간격
+  evaluation_interval: 15s # 알림 규칙 평가 간격
+
+  # 외부 레이블 (여러 Prometheus 인스턴스 구분용)
+  external_labels:
+    monitor: 'market-insights-monitor'
+    environment: 'development'
+
+# 알림 규칙 파일 로드
+rule_files:
+  - "alert_rules.yml"
+
+# AlertManager 설정
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# 스크래핑 대상 설정
+scrape_configs:
+  # Prometheus 자체 모니터링
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+
+  # Market Insights Pro 애플리케이션
+  - job_name: 'market-insights-app'
+    static_configs:
+      - targets: ['host.docker.internal:8001']  # Docker에서 호스트 접근
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    honor_labels: true
+
+  # Node Exporter (시스템 메트릭)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # cAdvisor (컨테이너 메트릭)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+
+  # Redis 메트릭 (Redis Exporter 사용시)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['host.docker.internal:6379']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+# 원격 저장소 설정 (선택사항)
+# remote_write:
+#   - url: "http://remote-storage:9201/write"
+
+# 원격 읽기 설정 (선택사항)
+# remote_read:
+#   - url: "http://remote-storage:9201/read"

@@ -1,0 +1,307 @@
+# Production Docker Compose Configuration
+# Market Insights Pro - Load Balanced Setup
+
+version: '3.8'
+
+services:
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: market_insights_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - app1
+      - app2
+      - app3
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Application Server 1
+  app1:
+    build:
+      context: .
+      target: production
+    container_name: market_insights_app1
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DATABASE_URL=sqlite:///data/market_insights.db
+      - WORKER_ID=app1
+      - INSTANCE_ID=1
+    volumes:
+      - app1_data:/app/data
+      - app_logs:/app/logs
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Application Server 2
+  app2:
+    build:
+      context: .
+      target: production
+    container_name: market_insights_app2
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DATABASE_URL=sqlite:///data/market_insights.db
+      - WORKER_ID=app2
+      - INSTANCE_ID=2
+    volumes:
+      - app2_data:/app/data
+      - app_logs:/app/logs
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Application Server 3
+  app3:
+    build:
+      context: .
+      target: production
+    container_name: market_insights_app3
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DATABASE_URL=sqlite:///data/market_insights.db
+      - WORKER_ID=app3
+      - INSTANCE_ID=3
+    volumes:
+      - app3_data:/app/data
+      - app_logs:/app/logs
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Worker 1 (High Priority)
+  celery-worker-high:
+    build:
+      context: .
+      target: celery-worker
+    container_name: market_insights_worker_high
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CELERY_WORKER_QUEUES=critical,high
+      - WORKER_TYPE=high_priority
+    volumes:
+      - worker_data:/app/data
+      - app_logs:/app/logs
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    command: ["celery", "-A", "core.celery_app", "worker", "--loglevel=info", "--concurrency=4", "--queues=critical,high"]
+
+  # Celery Worker 2 (Normal Priority)
+  celery-worker-normal:
+    build:
+      context: .
+      target: celery-worker
+    container_name: market_insights_worker_normal
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CELERY_WORKER_QUEUES=normal,low
+      - WORKER_TYPE=normal_priority
+    volumes:
+      - worker_data:/app/data
+      - app_logs:/app/logs
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    command: ["celery", "-A", "core.celery_app", "worker", "--loglevel=info", "--concurrency=2", "--queues=normal,low"]
+
+  # Celery Worker 3 (Batch Processing)
+  celery-worker-batch:
+    build:
+      context: .
+      target: celery-worker
+    container_name: market_insights_worker_batch
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CELERY_WORKER_QUEUES=batch
+      - WORKER_TYPE=batch_processing
+    volumes:
+      - worker_data:/app/data
+      - app_logs:/app/logs
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    command: ["celery", "-A", "core.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--queues=batch"]
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: .
+      target: celery-beat
+    container_name: market_insights_beat
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - beat_data:/app/data
+      - app_logs:/app/logs
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+
+  # Flower Monitoring
+  flower:
+    build:
+      context: .
+      target: flower
+    container_name: market_insights_flower
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      - redis
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+
+  # Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: market_insights_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/etc/redis/redis.conf:ro
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    command: redis-server /etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Apache Kafka
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    container_name: market_insights_zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/opt/zookeeper-3.4.13/data
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: market_insights_kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_DELETE_TOPIC_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka_data:/kafka
+    depends_on:
+      - zookeeper
+    networks:
+      - market_insights_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# Networks
+networks:
+  market_insights_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes
+volumes:
+  app1_data:
+    driver: local
+  app2_data:
+    driver: local
+  app3_data:
+    driver: local
+  worker_data:
+    driver: local
+  beat_data:
+    driver: local
+  app_logs:
+    driver: local
+  redis_data:
+    driver: local
+  kafka_data:
+    driver: local
+  zookeeper_data:
+    driver: local

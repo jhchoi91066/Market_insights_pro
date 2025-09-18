@@ -80,16 +80,37 @@ class AnalysisResult(Base):
 class DatabaseManager:
     """
     데이터베이스 연결과 세션을 관리하는 클래스
+    성능 최적화된 엔진과 연결 풀을 사용
     """
     def __init__(self, database_url: str = "sqlite:///data/market_insights.db"):
         self.database_url = database_url
-        self.engine = create_engine(
-            database_url, 
-            echo=False,  # SQL 쿼리 로깅 (개발시에만 True)
-            pool_pre_ping=True,  # 연결 유효성 검사
-            connect_args={"check_same_thread": False} # FastAPI 환경에서 SQLite 사용시 필수
+
+        # 최적화된 엔진 사용
+        try:
+            from core.database_optimizer import get_optimized_engine
+            self.engine = get_optimized_engine()
+        except ImportError:
+            # fallback to basic engine
+            self.engine = create_engine(
+                database_url,
+                echo=False,
+                pool_pre_ping=True,
+                connect_args={"check_same_thread": False}
+            )
+
+        self.SessionLocal = sessionmaker(
+            autocommit=False,
+            autoflush=False,
+            bind=self.engine,
+            expire_on_commit=False  # 성능 최적화: 커밋 후 객체 만료 방지
         )
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+
+        # 연결 풀 초기화
+        try:
+            from core.connection_pool import init_connection_pool
+            init_connection_pool(database_url.replace('sqlite:///', ''))
+        except ImportError:
+            pass
     
     def create_tables(self):
         """
