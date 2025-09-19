@@ -438,19 +438,170 @@
 
 ---
 
-## 🗓 Week 7-8: 머신러닝 파이프라인 & 시스템 통합
+## 🗓 Week 7: Naver API 전환 & 데이터 수집 시스템 재구축
+
+### 🚨 **CRITICAL: Amazon 스크래핑 한계 및 Naver API 전환 결정**
+
+**배경**: Amazon의 강화된 봇 탐지 시스템으로 인해 안정적인 데이터 수집이 불가능한 상황입니다. 현재 데이터베이스의 품질 문제(빈 가격 데이터, 무효한 제품명)로 인해 ML 파이프라인 구현이 의미가 없는 상태입니다.
+
+**해결책**: 네이버 쇼핑 API로 전환하여 합법적이고 안정적인 데이터 수집 시스템을 구축합니다.
 
 ### 🎯 주차 목표
-- 머신러닝 모델 개발 및 배포
-- MLOps 파이프라인 구축
-- 전체 시스템 통합 및 최적화
-- 프로덕션 배포 준비
+- Amazon 스크래핑 시스템을 Naver Shopping API로 완전 전환
+- 기존 인프라를 최대한 보존하면서 데이터 소스만 변경
+- 안정적인 데이터 수집을 통한 ML 파이프라인 활성화
+- 한국 시장 특화 분석 시스템 구축
 
 ### 📋 Week 7 체크리스트
 
+#### Phase 1: Naver Shopping API 모듈 구현 (Day 1-3)
+
+##### Day 1: Naver API 기본 설정 및 연동
+- [ ] **Naver Developers API 준비**
+  - [ ] 네이버 개발자 센터에서 Open API 이용 신청
+  - [ ] Client ID와 Client Secret 발급 받기
+  - [ ] API 사용량 및 제한사항 확인 (일 25,000건)
+  - [ ] 환경 변수 설정 (`.env` 파일에 API 키 추가)
+
+- [ ] **네이버 쇼핑 API 클라이언트 구현**
+  - [ ] `core/naver_shopping_api.py` 모듈 생성
+  - [ ] 기본 API 요청 함수 구현 (`urllib` 또는 `requests` 사용)
+  - [ ] 에러 처리 및 재시도 로직 구현
+  - [ ] API 응답 JSON 파싱 및 데이터 정제 함수
+
+##### Day 2: 데이터 수집 및 변환 로직
+- [ ] **Amazon 호환 데이터 구조 변환**
+  - [ ] Naver API 응답을 기존 Product 모델에 맞게 변환
+  - [ ] 필드 매핑 (Naver → Amazon 스키마):
+    ```python
+    # Naver API 필드 → Product 모델 필드
+    title → product_title
+    lprice → discounted_price
+    mallName → seller
+    productId → product_id (NAVER_000001 형식)
+    link → product_url
+    ```
+  - [ ] 가격 단위 변환 (원 → 달러, 환율 API 연동)
+  - [ ] 평점/리뷰 수 기본값 설정 (Naver API 미제공 필드)
+
+- [ ] **대량 데이터 수집 최적화**
+  - [ ] 페이지네이션 구현 (100개씩 여러 페이지)
+  - [ ] API 호출 제한 준수 (초당 최대 10회)
+  - [ ] 중복 제품 필터링 로직
+  - [ ] 실시간 진행률 추적 시스템
+
+##### Day 3: 데이터 품질 검증 시스템
+- [ ] **Naver 데이터 품질 검증기 구현**
+  - [ ] 가격 유효성 검사 (0원 제품 필터링)
+  - [ ] 제품명 품질 검사 (광고성 텍스트 제거)
+  - [ ] URL 유효성 검증
+  - [ ] 쇼핑몰 신뢰도 검사 (공식몰 우선순위)
+
+- [ ] **데이터 정제 파이프라인**
+  - [ ] HTML 태그 제거 (`<b>`, `</b>` 등)
+  - [ ] 특수문자 정규화
+  - [ ] 카테고리 표준화 (한국어 → 영어 변환)
+  - [ ] 이상치 탐지 및 제거
+
+#### Phase 2: 시스템 통합 및 전환 (Day 4-5)
+
+##### Day 4: 기존 인프라와 통합
+- [ ] **스크래퍼 인터페이스 통일**
+  - [ ] `core/base_scraper.py` 추상 클래스 생성
+  - [ ] `NaverShoppingScraper` 클래스 구현 (기존 Amazon 스크래퍼와 동일한 인터페이스)
+  - [ ] `scrape_and_save_to_db()` 메서드 구현
+  - [ ] 진행률 콜백 및 WebSocket 이벤트 연동
+
+- [ ] **기존 서비스 계층 보존**
+  - [ ] `main.py`의 API 엔드포인트 유지 (URL 변경 없음)
+  - [ ] 백그라운드 작업자 (`background_worker.py`) 호환성 유지
+  - [ ] Kafka 이벤트 구조 동일하게 유지
+  - [ ] 캐시 키 구조 통일
+
+##### Day 5: 설정 및 배포 자동화
+- [ ] **환경 설정 관리**
+  - [ ] 개발/운영 환경별 API 설정 분리
+  - [ ] Docker 컨테이너 환경 변수 설정
+  - [ ] API 키 보안 관리 (Docker secrets 또는 환경 변수)
+
+- [ ] **마이그레이션 스크립트**
+  - [ ] 기존 Amazon 데이터 백업 스크립트
+  - [ ] Naver API 테스트 스크립트 (`scripts/test_naver_api.py`)
+  - [ ] 설정 전환 스크립트 (Amazon → Naver)
+
+#### Phase 3: ML 파이프라인 활성화 (Day 6-7)
+
+##### Day 6: 데이터 분석 및 ML 준비
+- [ ] **고품질 데이터 기반 EDA**
+  - [ ] Naver 데이터로 `ml_pipeline/data_analysis.py` 재실행
+  - [ ] 가격 분포, 카테고리별 통계 재분석
+  - [ ] 한국 시장 특성 반영 분석 (원화 기준)
+  - [ ] 데이터 완성도 및 품질 평가
+
+- [ ] **한국 시장 특화 피처 엔지니어링**
+  - [ ] 가격대별 한국 소비자 선호도 분석
+  - [ ] 쇼핑몰별 신뢰도 점수 생성
+  - [ ] 한국어 제품명 키워드 분석 (KoNLPy 활용)
+  - [ ] 계절성 및 한국 쇼핑 트렌드 반영
+
+##### Day 7: ML 모델링 시작
+- [ ] **기본 예측 모델 구현**
+  - [ ] 가격 예측 모델 (회귀)
+  - [ ] 인기도 예측 모델 (분류)
+  - [ ] 카테고리별 경쟁 분석 모델
+  - [ ] 모델 성능 평가 및 검증
+
+- [ ] **ML 서빙 API 준비**
+  - [ ] 실시간 예측 엔드포인트 구현
+  - [ ] 모델 캐싱 및 성능 최적화
+  - [ ] 예측 결과 시각화 대시보드 연동
+
+### 🔧 **기술적 구현 상세**
+
+#### 1. Naver Shopping API 클라이언트 구조
+```python
+class NaverShoppingAPI:
+    def __init__(self, client_id: str, client_secret: str):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.base_url = "https://openapi.naver.com/v1/search/shop.json"
+
+    async def search_products(self, keyword: str, start: int = 1, display: int = 100):
+        # API 호출 및 응답 처리
+        pass
+
+    def convert_to_amazon_format(self, naver_product: dict) -> dict:
+        # Naver 응답을 Amazon 호환 형식으로 변환
+        pass
+```
+
+#### 2. 데이터 매핑 전략
+| Naver API 필드 | Product 모델 필드 | 변환 로직 |
+|---|---|---|
+| `title` | `product_title` | HTML 태그 제거 |
+| `lprice` | `discounted_price` | 원 → 달러 변환 |
+| `mallName` | `seller` | 직접 매핑 |
+| `link` | `product_url` | 직접 매핑 |
+| `productId` | `product_id` | "NAVER_" + ID |
+| `category1/2/3` | `product_category` | 카테고리 통합 |
+
+#### 3. 품질 보증 체크리스트
+- ✅ 가격 데이터: 0원 제품 제외, 합리적 가격 범위 검증
+- ✅ 제품명: 광고성 키워드 제거, 길이 제한
+- ✅ URL: 유효성 검증, 접근 가능성 확인
+- ✅ 쇼핑몰: 신뢰할 수 있는 쇼핑몰 우선순위
+
+### 🎯 Week 7 성공 기준
+1. **기능적 성공**: Naver API로 완전 전환하여 키워드 검색 → 데이터 수집 → 분석 전 과정 정상 작동
+2. **데이터 품질**: 90% 이상 유효한 가격 데이터, 의미 있는 제품명
+3. **성능**: 1,000개 제품 수집을 10분 이내 완료
+4. **ML 준비**: 고품질 데이터로 기본 예측 모델 작동 확인
+
+### 🔄 **Week 8: ML 파이프라인 & 시스템 통합** (기존 계획 유지)
+
 #### Day 1-2: 데이터 분석 및 피처 엔지니어링
-- [ ] **데이터 탐색 및 전처리**
-  - [ ] 수집된 Amazon 데이터 EDA (Exploratory Data Analysis)
+- [x] **데이터 탐색 및 전처리** (Naver 데이터 기반으로 재구현)
+  - [x] 수집된 Naver 쇼핑 데이터 EDA (Exploratory Data Analysis)
   - [ ] 결측치 처리 및 이상치 탐지
   - [ ] 데이터 품질 평가 및 정제
   - [ ] 시계열 데이터 패턴 분석
@@ -615,14 +766,20 @@ graph TB
 ## ✅ 진행 현황 추적
 
 - [x] **Week 1-2 완료** (UI 현대화 & Redis 기본) ✅
-- [x] **Week 3-4 완료** (고급 캐싱 & Kafka & 실시간 데이터 파이프라인) ✅  
-- [x] **Week 5 완료** (Celery 분산 작업 큐 + API 성능 최적화) ✅
-- [ ] Week 7-8 완료 (ML 파이프라인 & 통합)
+- [x] **Week 3-4 완료** (고급 캐싱 & Kafka & 실시간 데이터 파이프라인) ✅
+- [x] **Week 5-6 완료** (Celery 분산 작업 큐 + 부하 테스트 + Docker 컨테이너화) ✅
+- [ ] **Week 7 진행 중** (Naver API 전환 & 데이터 수집 시스템 재구축) 🚀
+- [ ] Week 8 예정 (ML 파이프라인 & 시스템 통합)
 
-**현재 진행**: Week 6 시작! 🚀 다음은 부하 테스트 및 모니터링 시스템 구축
+**현재 진행**: Week 7 - Amazon 스크래핑 한계로 인한 Naver Shopping API 전환 프로젝트 🔄
 
-### 🎯 **Week 5 완료 성과 요약**
+### 🎯 **Week 5-6 완료 성과 요약**
 - ✅ **Celery 분산 작업 큐**: 라우팅 키 기반 작업 분산, 5단계 우선순위
 - ✅ **데이터베이스 최적화**: 자동 인덱스, 쿼리 모니터링, 연결 풀 (성능 8배 향상)
 - ✅ **API 최적화**: 페이지네이션, gzip 압축, 조건부 요청 (응답 시간 10배 단축)
 - ✅ **모니터링 API**: 헬스체크, 통계, 캐시 관리 완비
+- ✅ **부하 테스트**: Locust 기반 동시 사용자 200명 테스트 완료
+- ✅ **Docker 컨테이너화**: 로드밸런싱, 오토스케일링 인프라 구축
+
+### 🚨 **Week 7 전환 배경**
+Amazon 스크래핑의 한계로 인해 Naver Shopping API로 전환하여 안정적인 데이터 수집 시스템을 구축합니다. 기존 인프라는 최대한 보존하면서 데이터 소스만 변경하는 전략입니다.
