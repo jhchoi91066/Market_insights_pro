@@ -14,11 +14,15 @@ import asyncio
 import json
 import logging
 from datetime import datetime
+from dotenv import load_dotenv
+
+# 환경 변수 로드
+load_dotenv('.env.development')
 
 # 캐시, 분석, Kafka 모듈
 from core.cache import get_cache_manager, CacheManager
 from core.analyzer_v2 import SQLiteMarketAnalyzer
-from core.amazon_scraper_v2 import AmazonScraperV2
+from core.naver_scraper_adapter import AmazonScraperV2
 from core.kafka_manager import get_kafka_manager, KafkaManager
 from core.background_worker import start_background_worker
 from core.stream_processor import start_stream_processor, get_stream_processor
@@ -37,9 +41,9 @@ import time
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Amazon Market Insights Pro",
-    description="Amazon product market analysis and competition research tool",
-    version="1.2.0", # 버전 업데이트
+    title="Market Insights Pro",
+    description="Multi-platform product market analysis and competition research tool (Naver Shopping + Insights)",
+    version="2.0.0", # Naver API 전환으로 메이저 버전 업데이트
 )
 
 # === 📊 메트릭 수집 미들웨어 ===
@@ -127,8 +131,8 @@ async def warm_up_cache():
                 print(f"❌ Error warming up cache for '{keyword}': {e}")
 
 # --- 이벤트 핸들러 ---
-# @app.on_event("startup")  # 임시 비활성화
-async def startup_event_disabled():
+@app.on_event("startup")
+async def startup_event():
     global cache_manager, kafka_manager
     print("🚀 Starting Market Insights Pro...")
     
@@ -190,8 +194,8 @@ async def initialize_browser():
     except Exception as e:
         print(f"❌ Browser initialization failed: {e}")
 
-# @app.on_event("shutdown")  # 임시 비활성화
-async def shutdown_event_disabled():
+@app.on_event("shutdown")
+async def shutdown_event():
     await scraper.close_browser()
 
     # Kafka 연결 정리

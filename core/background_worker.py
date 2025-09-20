@@ -13,7 +13,7 @@ from kafka.errors import KafkaError
 from core.kafka_manager import get_kafka_manager
 from core.cache import get_cache_manager
 from core.analyzer_v2 import SQLiteMarketAnalyzer
-from core.scraper import AmazonScraper
+from core.naver_scraper_adapter import NaverScraperAdapter as AmazonScraper
 
 logger = logging.getLogger(__name__)
 

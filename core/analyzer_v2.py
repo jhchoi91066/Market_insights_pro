@@ -77,19 +77,19 @@ class SQLiteMarketAnalyzer:
         try:
             min_price, max_price = price_range
             
-            # 1. 경쟁 제품 수 조회 (SQL)
+            # 1. 경쟁 제품 수 조회 (SQL) - LIKE 검색으로 변경
             competitor_count = session.query(Product).filter(
                 and_(
-                    Product.product_category == category,
+                    Product.product_category.like(f'%{category}%'),
                     Product.discounted_price >= min_price,
                     Product.discounted_price <= max_price
                 )
             ).count()
-            
+
             # Prime 제품 수 조회
             prime_count = session.query(Product).filter(
                 and_(
-                    Product.product_category == category,
+                    Product.product_category.like(f'%{category}%'),
                     Product.discounted_price >= min_price,
                     Product.discounted_price <= max_price,
                     Product.is_prime == True
@@ -118,7 +118,7 @@ class SQLiteMarketAnalyzer:
                 
                 avg_rating = session.query(func.avg(Product.product_rating)).filter(
                     and_(
-                        Product.product_category == category,
+                        Product.product_category.like(f'%{category}%'),
                         Product.discounted_price >= bin_min,
                         Product.discounted_price < bin_max,
                         Product.product_rating > 0  # 평점이 있는 제품만
@@ -134,7 +134,7 @@ class SQLiteMarketAnalyzer:
             # 3. TOP 10 제품 조회 (판매량 기준, SQL)
             top_products_query = session.query(Product).filter(
                 and_(
-                    Product.product_category == category,
+                    Product.product_category.like(f'%{category}%'),
                     Product.discounted_price >= min_price,
                     Product.discounted_price <= max_price
                 )
@@ -200,7 +200,7 @@ class SQLiteMarketAnalyzer:
                 func.count(Product.id).label('total_count')
             ).filter(
                 and_(
-                    Product.product_category == category,
+                    Product.product_category.like(f'%{category}%'),
                     Product.discounted_price > 0
                 )
             ).first()
@@ -225,7 +225,7 @@ class SQLiteMarketAnalyzer:
                 # 해당 구간의 제품 수 조회
                 count_in_bin = session.query(Product).filter(
                     and_(
-                        Product.product_category == category,
+                        Product.product_category.like(f'%{category}%'),
                         Product.discounted_price >= current_price,
                         Product.discounted_price < bin_end
                     )
@@ -279,7 +279,7 @@ class SQLiteMarketAnalyzer:
             # 1. 성공적인 제품들 조회 (SQL)
             successful_products = session.query(Product.product_title).filter(
                 and_(
-                    Product.product_category == category,
+                    Product.product_category.like(f'%{category}%'),
                     Product.product_rating >= rating_threshold,
                     Product.total_reviews >= reviews_threshold
                 )
@@ -346,7 +346,7 @@ class SQLiteMarketAnalyzer:
         try:
             # 1. 수집된 제품 수 확인
             collected_count = session.query(Product).filter(
-                Product.product_category == category
+                Product.product_category.like(f'%{category}%')
             ).count()
             
             if collected_count == 0:
@@ -355,7 +355,7 @@ class SQLiteMarketAnalyzer:
             
             # 2. TOP 10 제품의 판매량 계산
             top_10_products = session.query(Product.purchased_last_month).filter(
-                Product.product_category == category
+                Product.product_category.like(f'%{category}%')
             ).order_by(desc(Product.purchased_last_month)).limit(10).all()
             
             top_10_sales_sum = sum([p.purchased_last_month for p in top_10_products])
@@ -384,7 +384,7 @@ class SQLiteMarketAnalyzer:
             # 샘플 기반 추정 포화도
             if collected_count >= 50:
                 # 충분한 샘플: 25-35% 범위
-                estimated_saturation = 25 + (top_10_sales_sum / (top_10_sales_sum + sum([p.purchased_last_month for p in session.query(Product.purchased_last_month).filter(Product.product_category == category).offset(10).limit(40).all()]))) * 15
+                estimated_saturation = 25 + (top_10_sales_sum / (top_10_sales_sum + sum([p.purchased_last_month for p in session.query(Product.purchased_last_month).filter(Product.product_category.like(f'%{category}%')).offset(10).limit(40).all()]))) * 15
             elif collected_count >= 20:
                 # 중간 샘플: 30-40% 범위  
                 estimated_saturation = 30 + (collected_ratio * 1000)
@@ -455,7 +455,7 @@ class SQLiteMarketAnalyzer:
         # 1. 경쟁 밀도 점수 (0-4점) - 더 현실적인 기준
         competitor_count = session.query(Product).filter(
             and_(
-                Product.product_category == category,
+                Product.product_category.like(f'%{category}%'),
                 Product.discounted_price >= min_price,
                 Product.discounted_price <= max_price
             )
@@ -476,7 +476,7 @@ class SQLiteMarketAnalyzer:
         # 2. 품질 기대치 점수 (0-3점) - 평균 평점 기반
         avg_rating = session.query(func.avg(Product.product_rating)).filter(
             and_(
-                Product.product_category == category,
+                Product.product_category.like(f'%{category}%'),
                 Product.discounted_price >= min_price,
                 Product.discounted_price <= max_price,
                 Product.product_rating > 0

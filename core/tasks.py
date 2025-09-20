@@ -49,7 +49,7 @@ def scrape_product_data(self, keyword: str, max_products: int = 30) -> Dict[str,
         tracker.start_task(task_id, f'Starting Amazon scraping for "{keyword}"')
 
         # 실제 스크래핑 로직 (기존 코드 재사용)
-        from core.scraper import AmazonScraper
+        from core.naver_scraper_adapter import NaverScraperAdapter as AmazonScraper
 
         scraper = AmazonScraper()
 

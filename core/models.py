@@ -32,6 +32,7 @@ class Product(Base):
     asin = Column(String(20))  # Amazon Standard Identification Number
     product_url = Column(Text)  # 원본 상품 URL
     scraped_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    data_source = Column(String(50), default='unknown')  # 데이터 소스 (amazon, naver_shopping_api 등)
     
     def __repr__(self):
         return f"<Product(id={self.id}, title='{self.product_title[:50]}...', price={self.discounted_price})>"
