@@ -81,9 +81,102 @@ async def metrics_middleware(request: Request, call_next):
 # --- 전역 인스턴스 및 설정 ---
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-sqlite_analyzer = SQLiteMarketAnalyzer()
+
+# 분석기는 지연 초기화로 변경하여 환경변수 로딩 확인
+sqlite_analyzer = None
 scraper = None  # 시작 시에 초기화
 scraping_lock = asyncio.Lock()
+
+def get_analyzer():
+    """분석기 인스턴스를 가져오는 헬퍼 함수 (지연 초기화)"""
+    global sqlite_analyzer
+    if sqlite_analyzer is None:
+        # 환경변수 재확인 및 로그
+        import os
+        client_id = os.getenv('NAVER_CLIENT_ID')
+        client_secret = os.getenv('NAVER_CLIENT_SECRET')
+        print(f"🔧 분석기 초기화 중... API 키 확인: {bool(client_id and client_secret)}")
+
+        sqlite_analyzer = SQLiteMarketAnalyzer()
+
+        # 데이터랩 API 상태 확인
+        if sqlite_analyzer.datalab_api:
+            print("✅ 데이터랩 API 활성화!")
+        else:
+            print("⚠️ 데이터랩 API 비활성화")
+
+    return sqlite_analyzer
+
+def calculate_trend_adjustment(trend_data: dict) -> float:
+    """트렌드 데이터를 기반으로 난이도 조정 점수 계산"""
+    adjustment = 0.0
+
+    # 1. 트렌드 방향 조정
+    trend_direction = trend_data.get("trend_direction", "stable")
+    if trend_direction == "rising":
+        adjustment += 0.5
+    elif trend_direction == "falling":
+        adjustment -= 0.5
+
+    # 2. 시장 열기 조정
+    market_heat = trend_data.get("market_heat", "cold")
+    heat_scores = {"hot": 1.0, "warm": 0.5, "cool": 0.0, "cold": -0.5}
+    adjustment += heat_scores.get(market_heat, 0.0)
+
+    # 3. 트렌드 변화율 조정
+    trend_change = trend_data.get("trend_change_percent", 0)
+    if trend_change > 20:
+        adjustment += 0.5
+    elif trend_change < -20:
+        adjustment -= 0.5
+
+    # 4. 인기도 지수 조정
+    popularity = trend_data.get("popularity_index", 0)
+    if popularity > 80:
+        adjustment += 0.5
+    elif popularity < 20:
+        adjustment -= 0.5
+
+    return round(adjustment, 1)
+
+def generate_recommendations(competition_result: dict, saturation_result: dict, trend_data: dict = None) -> list:
+    """분석 결과를 바탕으로 추천 사항 생성"""
+    recommendations = []
+
+    difficulty = competition_result.get("difficulty_score", 0)
+    saturation = saturation_result.get("market_saturation_percentage", 0)
+
+    # 난이도 기반 추천
+    if difficulty < 3:
+        recommendations.append("🟢 진입 난이도가 낮아 새로운 판매자에게 유리한 시장입니다.")
+    elif difficulty < 6:
+        recommendations.append("🟡 중간 난이도 시장으로 차별화 전략이 필요합니다.")
+    else:
+        recommendations.append("🔴 높은 경쟁 시장으로 신중한 접근이 필요합니다.")
+
+    # 포화도 기반 추천
+    if saturation < 30:
+        recommendations.append("📈 시장 포화도가 낮아 성장 잠재력이 있습니다.")
+    elif saturation < 60:
+        recommendations.append("⚖️ 적정 수준의 시장 포화도를 보이고 있습니다.")
+    else:
+        recommendations.append("📊 시장 포화도가 높아 틈새 전략을 고려하세요.")
+
+    # 트렌드 기반 추천 (데이터가 있을 때만)
+    if trend_data:
+        if trend_data.get("trend_direction") == "rising":
+            recommendations.append("📈 상승 트렌드 시장으로 적극적인 진입을 고려하세요.")
+        elif trend_data.get("trend_direction") == "falling":
+            recommendations.append("📉 하락 트렌드이므로 신중한 시장 진입이 필요합니다.")
+
+        market_heat = trend_data.get("market_heat", "")
+        if market_heat == "hot":
+            recommendations.append("🔥 뜨거운 시장으로 빠른 행동이 유리합니다.")
+        elif market_heat == "cold":
+            recommendations.append("❄️ 관심도가 낮은 시장으로 마케팅 전략이 중요합니다.")
+
+    return recommendations
+
 active_connections: dict[str, WebSocket] = {}
 cache_manager: CacheManager = None
 kafka_manager: KafkaManager = None  # Kafka 매니저 추가
@@ -335,10 +428,62 @@ async def get_report(request: Request, keyword: str):
             if cached_report:
                 return templates.TemplateResponse("report.html", {"request": request, "report": cached_report})
         
-        competition_report = sqlite_analyzer.analyze_category_competition(keyword)
-        saturation_report = sqlite_analyzer.calculate_market_saturation(keyword)
-        report_data = {**competition_report, **saturation_report}
-        report_data['keyword'] = keyword
+        analyzer = get_analyzer()
+
+        # 트렌드 데이터 포함 여부 확인
+        if analyzer.datalab_api:
+            print(f"🔄 '{keyword}' 트렌드 포함 통합 분석 시작")
+            try:
+                # 트렌드 분석 추가
+                trend_data = analyzer.datalab_api.get_comprehensive_market_insight(keyword, days=14)
+
+                # 기존 분석
+                competition_report = analyzer.analyze_category_competition(keyword)
+                saturation_report = analyzer.calculate_market_saturation(keyword)
+
+                # 트렌드 조정 적용
+                original_difficulty = competition_report.get('difficulty_score', 0)
+                trend_adjustment = calculate_trend_adjustment(trend_data)
+                adjusted_difficulty = min(10, max(0, original_difficulty + trend_adjustment))
+
+                # 통합 리포트 데이터
+                report_data = {
+                    **competition_report,
+                    **saturation_report,
+                    'keyword': keyword,
+                    'original_difficulty_score': original_difficulty,
+                    'difficulty_score': adjusted_difficulty,  # 조정된 난이도로 덮어쓰기
+                    'trend_analysis': {
+                        'trend_score': trend_data.get('trend_score', 0),
+                        'trend_direction': trend_data.get('trend_direction', 'stable'),
+                        'trend_change_percent': trend_data.get('trend_change_percent', 0),
+                        'popularity_index': trend_data.get('popularity_index', 0),
+                        'market_heat': trend_data.get('market_heat', 'cold'),
+                        'related_keywords': trend_data.get('related_keywords', []),
+                        'difficulty_adjustment': trend_adjustment
+                    },
+                    'has_trend_data': True,
+                    'recommendations': generate_recommendations(competition_report, saturation_report, trend_data)
+                }
+
+                print(f"✅ 트렌드 포함 분석 완료: 기존 {original_difficulty:.1f} → 조정 {adjusted_difficulty:.1f}")
+
+            except Exception as e:
+                print(f"⚠️ 트렌드 분석 중 오류, 기본 분석으로 대체: {str(e)}")
+                # 트렌드 분석 실패 시 기본 분석
+                competition_report = analyzer.analyze_category_competition(keyword)
+                saturation_report = analyzer.calculate_market_saturation(keyword)
+                report_data = {**competition_report, **saturation_report}
+                report_data['keyword'] = keyword
+                report_data['has_trend_data'] = False
+        else:
+            print(f"📊 '{keyword}' 기본 분석 (트렌드 데이터 없음)")
+            # 데이터랩 API 없을 때 기본 분석
+            competition_report = analyzer.analyze_category_competition(keyword)
+            saturation_report = analyzer.calculate_market_saturation(keyword)
+            report_data = {**competition_report, **saturation_report}
+            report_data['keyword'] = keyword
+            report_data['has_trend_data'] = False
 
         if cache_manager:
             cache_manager.set_analysis_result(keyword, report_data, ttl_hours=24)
