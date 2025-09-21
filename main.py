@@ -82,7 +82,7 @@ async def metrics_middleware(request: Request, call_next):
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 sqlite_analyzer = SQLiteMarketAnalyzer()
-scraper = AmazonScraperV2()
+scraper = None  # 시작 시에 초기화
 scraping_lock = asyncio.Lock()
 active_connections: dict[str, WebSocket] = {}
 cache_manager: CacheManager = None
@@ -131,29 +131,35 @@ async def warm_up_cache():
                 print(f"❌ Error warming up cache for '{keyword}': {e}")
 
 # --- 이벤트 핸들러 ---
-@app.on_event("startup")
+@app.on_event("startup")  # HTTP 응답 확인 후 단계적 복원
 async def startup_event():
-    global cache_manager, kafka_manager
-    print("🚀 Starting Market Insights Pro...")
-    
-    # Redis 캐시 매니저 초기화
+    global cache_manager, kafka_manager, scraper
+    print("🚀 Starting Market Insights Pro... (step by step restoration)")
+
+    # 1단계: 네이버 스크래퍼만 초기화
     try:
-        cache_manager = get_cache_manager()
-        print("✅ Redis Cache Manager connected.")
+        scraper = AmazonScraperV2()
+        print("✅ Naver Scraper initialized.")
     except Exception as e:
-        print(f"❌ Redis connection failed: {e}")
-        cache_manager = None
-    
-    # Kafka 매니저 초기화 (빠른 실패)
-    try:
-        kafka_manager = get_kafka_manager()
-        print("⚡ Kafka Manager instance created.")
-    except Exception as e:
-        print(f"❌ Kafka Manager creation failed: {e}")
-        kafka_manager = None
+        print(f"❌ Naver Scraper initialization failed: {e}")
+        scraper = None
+
+    # 캐시와 Kafka는 나중에 단계적으로 복원
+    cache_manager = None
+    kafka_manager = None
+    print("✅ Phase 1 startup completed (Naver scraper only).")
+
+    # Kafka 매니저 초기화 - 임시 비활성화
+    # try:
+    #     kafka_manager = get_kafka_manager()
+    #     print("⚡ Kafka Manager instance created.")
+    # except Exception as e:
+    #     print(f"❌ Kafka Manager creation failed: {e}")
+    #     kafka_manager = None
     
     # 백그라운드 태스크들을 비동기로 시작 (서버 시작을 블록하지 않음)
-    asyncio.create_task(initialize_background_services())
+    # 임시로 비활성화하여 HTTP 요청 처리 우선
+    # asyncio.create_task(initialize_background_services())
 
     print("✅ Market Insights Pro startup completed!")
 
@@ -196,7 +202,8 @@ async def initialize_browser():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await scraper.close_browser()
+    if scraper:
+        await scraper.close_browser()
 
     # Kafka 연결 정리
     if kafka_manager:
@@ -236,6 +243,11 @@ async def run_analysis_job(client_id: str, keyword: str):
             if cache_manager and cache_manager.get_analysis_result(keyword):
                 await send_progress(client_id, 100, "Report ready!", "completed")
                 return
+
+            if not scraper:
+                await send_progress(client_id, 100, "Scraper not initialized", "error")
+                return
+
             await send_progress(client_id, 10, "Starting market analysis...")
             db_result = await scraper.scrape_and_save_to_db(keyword, max_products=30)
             if not db_result or not db_result.get('success'):

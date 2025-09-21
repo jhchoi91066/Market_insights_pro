@@ -15,12 +15,14 @@ from functools import lru_cache
 # ORM 모델 import
 try:
     from .models import db_manager, Product, ScrapingSession, AnalysisResult
+    from .naver_datalab_api import NaverDataLabAPI
 except ImportError:
     # 직접 실행시에는 절대 import 사용
     import sys
     import os
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
     from core.models import db_manager, Product, ScrapingSession, AnalysisResult
+    from core.naver_datalab_api import NaverDataLabAPI
 
 
 class SQLiteMarketAnalyzer:
@@ -39,9 +41,13 @@ class SQLiteMarketAnalyzer:
         """
         print("SQLiteMarketAnalyzer 초기화 중...")
         self.db_manager = db_manager
-        
+
         # 데이터베이스 테이블 생성 (없을 경우)
         self.db_manager.create_tables()
+
+        # 데이터랩 API 초기화 (선택사항)
+        self.datalab_api = None
+        self._init_datalab_api()
         
         # 기본 통계 확인
         session = self.db_manager.get_session()
@@ -53,6 +59,22 @@ class SQLiteMarketAnalyzer:
             print(f"   📂 카테고리 수: {categories}개")
         finally:
             self.db_manager.close_session(session)
+
+    def _init_datalab_api(self):
+        """네이버 데이터랩 API 초기화 (선택사항)"""
+        try:
+            import os
+            client_id = os.getenv('NAVER_CLIENT_ID')
+            client_secret = os.getenv('NAVER_CLIENT_SECRET')
+
+            if client_id and client_secret:
+                self.datalab_api = NaverDataLabAPI(client_id, client_secret)
+                print("✅ 네이버 데이터랩 API 연결 완료!")
+            else:
+                print("⚠️ 네이버 API 키가 설정되지 않음 - 데이터랩 기능 비활성화")
+        except Exception as e:
+            print(f"⚠️ 데이터랩 API 초기화 실패: {str(e)}")
+            self.datalab_api = None
 
     def get_session(self) -> Session:
         """데이터베이스 세션을 반환합니다."""
