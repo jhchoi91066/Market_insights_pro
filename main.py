@@ -21,7 +21,7 @@ load_dotenv('.env.development')
 
 # 캐시, 분석, Kafka 모듈
 from core.cache import get_cache_manager, CacheManager
-from core.analyzer_v2 import SQLiteMarketAnalyzer
+from core.naver_market_analyzer import NaverMarketAnalyzer
 from core.naver_scraper_adapter import AmazonScraperV2
 from core.kafka_manager import get_kafka_manager, KafkaManager
 from core.background_worker import start_background_worker
@@ -83,29 +83,18 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # 분석기는 지연 초기화로 변경하여 환경변수 로딩 확인
-sqlite_analyzer = None
+naver_analyzer = None
 scraper = None  # 시작 시에 초기화
 scraping_lock = asyncio.Lock()
 
 def get_analyzer():
     """분석기 인스턴스를 가져오는 헬퍼 함수 (지연 초기화)"""
-    global sqlite_analyzer
-    if sqlite_analyzer is None:
-        # 환경변수 재확인 및 로그
-        import os
-        client_id = os.getenv('NAVER_CLIENT_ID')
-        client_secret = os.getenv('NAVER_CLIENT_SECRET')
-        print(f"🔧 분석기 초기화 중... API 키 확인: {bool(client_id and client_secret)}")
-
-        sqlite_analyzer = SQLiteMarketAnalyzer()
-
-        # 데이터랩 API 상태 확인
-        if sqlite_analyzer.datalab_api:
-            print("✅ 데이터랩 API 활성화!")
-        else:
-            print("⚠️ 데이터랩 API 비활성화")
-
-    return sqlite_analyzer
+    global naver_analyzer
+    if naver_analyzer is None:
+        print("🚀 네이버 기반 시장 분석기 초기화 중...")
+        naver_analyzer = NaverMarketAnalyzer()
+        print("✅ 네이버 기반 분석기 준비 완료!")
+    return naver_analyzer
 
 def calculate_trend_adjustment(trend_data: dict) -> float:
     """트렌드 데이터를 기반으로 난이도 조정 점수 계산"""
@@ -209,12 +198,9 @@ async def warm_up_cache():
             
             print(f"🔥 Warming up cache for '{keyword}'...")
             try:
-                # 스크레이핑 및 분석
-                await scraper.scrape_and_save_to_db(keyword, max_products=30)
-                competition_report = sqlite_analyzer.analyze_category_competition(keyword)
-                saturation_report = sqlite_analyzer.calculate_market_saturation(keyword)
-                report_data = {**competition_report, **saturation_report}
-                report_data['keyword'] = keyword
+                # 네이버 API 기반 분석 (스크레이핑 대체)
+                analyzer = get_analyzer()
+                report_data = analyzer.get_trend_enhanced_analysis(keyword, days=14, product_count=30)
 
                 # L2 캐시에 저장
                 if cache_manager:
@@ -430,60 +416,41 @@ async def get_report(request: Request, keyword: str):
         
         analyzer = get_analyzer()
 
-        # 트렌드 데이터 포함 여부 확인
-        if analyzer.datalab_api:
-            print(f"🔄 '{keyword}' 트렌드 포함 통합 분석 시작")
+        # 네이버 기반 통합 분석 실행
+        print(f"🔄 '{keyword}' 네이버 API 기반 종합 분석 시작")
+        try:
+            # 트렌드 강화 분석 (자동으로 트렌드 데이터 통합)
+            report_data = analyzer.get_trend_enhanced_analysis(keyword, days=14, product_count=50)
+            
+            # 누락된 시장 포화도 데이터 추가
+            saturation_data = analyzer.calculate_market_saturation(keyword, product_count=50)
+            report_data.update(saturation_data)
+
+            # 프론트엔드 호환성을 위해 난이도 점수 키 조정
+            adjusted_score = report_data.get('adjusted_difficulty_score', report_data.get('difficulty_score', 0))
+            report_data['difficulty_score'] = adjusted_score
+
+            # JSON 직렬화를 위해 datetime 객체를 문자열로 변환
+            product_lists_to_convert = ['top_10_products', 'products']
+            for key in product_lists_to_convert:
+                if key in report_data:
+                    for product in report_data[key]:
+                        if isinstance(product.get('scraped_at'), datetime):
+                            product['scraped_at'] = product['scraped_at'].isoformat()
+
+            print(f"✅ 네이버 기반 종합 분석 완료!")
+
+        except Exception as e:
+            print(f"⚠️ 종합 분석 중 오류, 기본 분석으로 대체: {str(e)}")
+            # 트렌드 분석 실패 시 기본 분석
             try:
-                # 트렌드 분석 추가
-                trend_data = analyzer.datalab_api.get_comprehensive_market_insight(keyword, days=14)
-
-                # 기존 분석
-                competition_report = analyzer.analyze_category_competition(keyword)
-                saturation_report = analyzer.calculate_market_saturation(keyword)
-
-                # 트렌드 조정 적용
-                original_difficulty = competition_report.get('difficulty_score', 0)
-                trend_adjustment = calculate_trend_adjustment(trend_data)
-                adjusted_difficulty = min(10, max(0, original_difficulty + trend_adjustment))
-
-                # 통합 리포트 데이터
-                report_data = {
-                    **competition_report,
-                    **saturation_report,
-                    'keyword': keyword,
-                    'original_difficulty_score': original_difficulty,
-                    'difficulty_score': adjusted_difficulty,  # 조정된 난이도로 덮어쓰기
-                    'trend_analysis': {
-                        'trend_score': trend_data.get('trend_score', 0),
-                        'trend_direction': trend_data.get('trend_direction', 'stable'),
-                        'trend_change_percent': trend_data.get('trend_change_percent', 0),
-                        'popularity_index': trend_data.get('popularity_index', 0),
-                        'market_heat': trend_data.get('market_heat', 'cold'),
-                        'related_keywords': trend_data.get('related_keywords', []),
-                        'difficulty_adjustment': trend_adjustment
-                    },
-                    'has_trend_data': True,
-                    'recommendations': generate_recommendations(competition_report, saturation_report, trend_data)
-                }
-
-                print(f"✅ 트렌드 포함 분석 완료: 기존 {original_difficulty:.1f} → 조정 {adjusted_difficulty:.1f}")
-
-            except Exception as e:
-                print(f"⚠️ 트렌드 분석 중 오류, 기본 분석으로 대체: {str(e)}")
-                # 트렌드 분석 실패 시 기본 분석
-                competition_report = analyzer.analyze_category_competition(keyword)
-                saturation_report = analyzer.calculate_market_saturation(keyword)
-                report_data = {**competition_report, **saturation_report}
-                report_data['keyword'] = keyword
+                report_data = analyzer.analyze_market_competition(keyword, product_count=50)
+                saturation_data = analyzer.calculate_market_saturation(keyword, product_count=50)
+                report_data.update(saturation_data)
                 report_data['has_trend_data'] = False
-        else:
-            print(f"📊 '{keyword}' 기본 분석 (트렌드 데이터 없음)")
-            # 데이터랩 API 없을 때 기본 분석
-            competition_report = analyzer.analyze_category_competition(keyword)
-            saturation_report = analyzer.calculate_market_saturation(keyword)
-            report_data = {**competition_report, **saturation_report}
-            report_data['keyword'] = keyword
-            report_data['has_trend_data'] = False
+            except Exception as e2:
+                print(f"❌ 기본 분석도 실패: {str(e2)}")
+                return templates.TemplateResponse("error.html", {"request": request, "error_message": f"Analysis failed: {e2}"})
 
         if cache_manager:
             cache_manager.set_analysis_result(keyword, report_data, ttl_hours=24)
@@ -498,9 +465,9 @@ async def clear_cache(payload: CacheClearRequest):
     l1_cleared = False
     l2_cleared = False
     try:
-        sqlite_analyzer.analyze_category_competition.cache_clear()
-        sqlite_analyzer.calculate_market_saturation.cache_clear()
+        # 네이버 기반 분석기는 내부 캐시 없음 (실시간 API 기반)
         l1_cleared = True
+        print("✅ 네이버 API 기반 분석기는 캐시가 필요하지 않습니다.")
     except Exception as e:
         print(f"⚠️ Failed to clear L1 cache: {e}")
     if cache_manager:

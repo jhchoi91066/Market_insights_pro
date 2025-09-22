@@ -27,8 +27,7 @@ class ReportPage {
 
     parseProductPrices(products) {
         return products.map(p => {
-            const priceStr = (p.discounted_price || '0').replace(/[^\d.]/g, '');
-            p.numeric_price = parseFloat(priceStr) || 0;
+            p.numeric_price = p.discounted_price || 0;
             return p;
         });
     }
@@ -74,6 +73,7 @@ class ReportPage {
 
     sortProducts(products) {
         const sortKey = this.currentSort;
+        console.log(`Sorting by: ${sortKey}`); // For debugging
         return [...products].sort((a, b) => {
             if (sortKey === 'numeric_price_asc') {
                 return a.numeric_price - b.numeric_price;
@@ -124,7 +124,7 @@ class ReportPage {
                         </div>
                     </td>
                     <td><span class="badge badge-primary">${p.purchased_last_month}+/mo</span></td>
-                    <td>${p.is_prime ? '<span class="badge badge-success">📦 Prime</span>' : '<span class="text-gray-400 text-sm">Standard</span>'}</td>
+                    <td><span class="font-medium text-gray-700 dark:text-gray-300">${p.brand || 'N/A'}</span></td>
                 </tr>
             `;
             tableBody.innerHTML += row;
@@ -135,21 +135,6 @@ class ReportPage {
         Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
         const isDarkMode = document.documentElement.classList.contains('dark');
         Chart.defaults.color = isDarkMode ? '#9CA3AF' : '#6B7280';
-
-        // Competition Overview Chart
-        const competitionCtx = document.getElementById('competitionChart').getContext('2d');
-        this.charts.competition = new Chart(competitionCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Prime Products', 'Standard Products'],
-                datasets: [{
-                    data: [this.reportData.prime_count, this.reportData.competitor_count - this.reportData.prime_count],
-                    backgroundColor: ['#10B981', '#6B7280'],
-                    borderWidth: 0, hoverOffset: 4
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-        });
 
         // Market Share Chart
         const marketShareCtx = document.getElementById('marketShareChart').getContext('2d');
@@ -170,15 +155,11 @@ class ReportPage {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const reportData = {
-        keyword: '{{ report.keyword }}',
-        difficulty_score: {{ report.difficulty_score }},
-        competitor_count: {{ report.competitor_count }},
-        prime_count: {{ report.prime_count or 0 }},
-        prime_percentage: {{ report.prime_percentage or 0 }},
-        market_saturation_percentage: {{ report.market_saturation_percentage }},
-        top_10_products: {{ report.top_10_products|tojson|safe }},
-        rating_by_price_bin: {{ report.rating_by_price_bin|tojson|safe if report.rating_by_price_bin else '{}' }}
-    };
-    new ReportPage(reportData);
+    try {
+        const rawReportData = document.getElementById('report-data').textContent;
+        const reportData = JSON.parse(rawReportData);
+        new ReportPage(reportData);
+    } catch (e) {
+        console.error("Failed to parse report data:", e);
+    }
 });

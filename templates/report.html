@@ -73,11 +73,7 @@
         </div>
 
         <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="card">
-                <div class="card-header"><h3 class="card-title">Competition Overview</h3></div>
-                <div class="card-body"><canvas id="competitionChart" width="400" height="300"></canvas></div>
-            </div>
+        <div class="grid grid-cols-1 gap-8">
             <div class="card">
                 <div class="card-header"><h3 class="card-title">Top 5 Products by Sales</h3></div>
                 <div class="card-body"><canvas id="marketShareChart" width="400" height="300"></canvas></div>
@@ -106,7 +102,7 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Rank</th><th>Product</th><th>Price</th><th>Rating</th><th>Monthly Sales</th><th>Prime</th>
+                                <th>Rank</th><th>Product</th><th>Price</th><th>Rating</th><th>Monthly Sales</th><th>Brand</th>
                             </tr>
                         </thead>
                         <tbody id="products-table-body">
@@ -124,5 +120,8 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script type="application/json" id="report-data">
+    {{ report|tojson|safe }}
+</script>
 <script src="/static/js/report.js"></script>
 {% endblock %}
