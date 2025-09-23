@@ -27,40 +27,24 @@ def analyze_current_data():
     print("🔍 Step 1: 데이터 탐색 및 분석 (EDA)")
     print("=" * 50)
 
-    # 데이터 로딩 (SQLite 데이터베이스에서 직접)
-    analyzer = SQLiteMarketAnalyzer()
-
-    # 세션을 통해 모든 제품 데이터 가져오기
-    with analyzer.get_session() as session:
-        from core.models import Product
-        products = session.query(Product).all()
-
-        # Product 객체들을 딕셔너리로 변환 (실제 존재하는 필드만 사용)
-        products_data = []
-        for product in products:
-            products_data.append({
-                'id': product.id,
-                'product_id': product.product_id,
-                'title': product.product_title,
-                'price': product.discounted_price,
-                'rating': product.product_rating,
-                'review_count': product.total_reviews,
-                'category': product.product_category,
-                'brand': product.brand,
-                'seller': product.seller,
-                'is_prime': product.is_prime,
-                'asin': product.asin,
-                'product_url': product.product_url,
-                'purchased_last_month': product.purchased_last_month,
-                'scraped_at': product.scraped_at
-            })
-
-    if not products_data:
-        print("❌ 데이터가 없습니다!")
+    # 데이터 로딩 (생성된 CSV 파일에서 직접)
+    data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'naver_products_cleaned_for_ml.csv')
+    try:
+        df = pd.read_csv(data_path)
+    except FileNotFoundError:
+        print(f"❌ 데이터 파일({data_path})을 찾을 수 없습니다!")
+        print("💡 먼저 scripts/08_generate_naver_dataset.py를 실행하여 데이터셋을 생성해주세요.")
         return None
 
-    # Pandas DataFrame으로 변환 (데이터 분석의 핵심 도구)
-    df = pd.DataFrame(products_data)
+    # 컬럼 이름 통일 (기존 분석 코드와 호환성 맞추기)
+    column_rename_map = {
+        'product_title': 'title',
+        'discounted_price': 'price',
+        'product_rating': 'rating',
+        'total_reviews': 'review_count',
+        'product_category': 'category'
+    }
+    df.rename(columns=column_rename_map, inplace=True)
 
     print(f"📊 총 데이터 개수: {len(df)}개")
     print(f"📋 컬럼(특성): {list(df.columns)}")
@@ -68,7 +52,7 @@ def analyze_current_data():
 
     # 1. 기본 정보 확인
     print("1️⃣ 데이터 기본 정보:")
-    print(df.info())
+    df.info()
     print()
 
     # 2. 수치형 데이터 통계
@@ -79,16 +63,16 @@ def analyze_current_data():
     print()
 
     # 3. 카테고리별 분석
-    print("3️⃣ 카테고리별 상품 분포:")
-    if 'category' in df.columns:
-        category_counts = df['category'].value_counts()
+    print("3️⃣ 검색 키워드별 상품 분포:")
+    if 'search_keyword' in df.columns:
+        category_counts = df['search_keyword'].value_counts()
         print(category_counts)
         print()
 
         # 카테고리별 평균 가격
-        print("4️⃣ 카테고리별 평균 가격:")
+        print("4️⃣ 검색 키워드별 평균 가격:")
         if 'price' in df.columns:
-            avg_price_by_category = df.groupby('category')['price'].agg(['mean', 'std', 'count'])
+            avg_price_by_category = df.groupby('search_keyword')['price'].agg(['mean', 'std', 'count'])
             print(avg_price_by_category.round(2))
 
     # 4. 결측값 확인
@@ -103,11 +87,12 @@ def analyze_current_data():
         print("\n6️⃣ 가격대별 분석:")
         # 가격대 구간 나누기
         df['price_range'] = pd.cut(df['price'],
-                                  bins=[0, 20, 50, 100, 200, float('inf')],
-                                  labels=['$0-20', '$20-50', '$50-100', '$100-200', '$200+'])
+                                  bins=[0, 10, 30, 60, 100, float('inf')],
+                                  labels=['$0-10', '$10-30', '$30-60', '$60-100', '$100+'])
         print(df['price_range'].value_counts().sort_index())
 
     return df
+
 
 def create_ml_features(df):
     """
