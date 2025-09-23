@@ -1,4 +1,3 @@
-
 import pandas as pd
 import xgboost as xgb
 import os
@@ -44,54 +43,55 @@ def train_price_prediction_model():
         print("\n🚀 Step 1: 데이터 준비 (Data Preparation)")
         print("=" * 50)
 
-    # 1. 데이터 로딩
-    data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'naver_products_featured_for_ml.csv')
-    try:
-        df = pd.read_csv(data_path)
-        print(f"✅ 데이터 로딩 완료: {len(df)}개 행")
-    except FileNotFoundError:
-        print(f"❌ 데이터 파일({data_path})을 찾을 수 없습니다!")
-        print("💡 먼저 ml_pipeline/05_advanced_feature_engineering.py를 실행하여 데이터셋을 생성해주세요.")
-        return
+        # 1. 데이터 로딩
+        data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'naver_products_featured_for_ml.csv')
+        try:
+            df = pd.read_csv(data_path)
+            print(f"✅ 데이터 로딩 완료: {len(df)}개 행")
 
-    # 2. 기본적인 전처리
-    # 불필요한 컬럼 제거 (전처리 스크립트에서 이미 제거된 컬럼 포함)
-    cols_to_drop = [
-        'product_id', 'product_url', 'scraped_at', 'image_url',
-        'original_price_won', 'data_source',
-        'category_avg_price', 'keyword_avg_price' # 피처 엔지니어링 과정에서 생성된 중간 컬럼
-    ]
-    df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
+            # 데이터 정보 로깅
+            mlflow.log_param("total_samples", len(df))
+            mlflow.log_param("data_source", "naver_shopping_api")
 
-    # naver_category 컬럼들을 category dtype으로 변환
-    for col in ['naver_category1', 'naver_category2', 'naver_category3', 'naver_category4']:
-        if col in df.columns:
-            df[col] = df[col].astype('category')
+        except FileNotFoundError:
+            print(f"❌ 데이터 파일({data_path})을 찾을 수 없습니다!")
+            print("💡 먼저 ml_pipeline/05_advanced_feature_engineering.py를 실행하여 데이터셋을 생성해주세요.")
+            return
 
-    # 결측치 처리 (전처리 스크립트에서 이미 처리됨)
-    # brand, maker, seller의 결측치는 'Unknown'으로 채움
-    # 이 단계에서는 추가적인 결측치 처리가 필요 없음
-    print("✅ 기본적인 전처리 및 결측치 처리 완료")
+        # 2. 기본적인 전처리
+        cols_to_drop = [
+            'product_id', 'product_url', 'scraped_at', 'image_url',
+            'original_price_won', 'data_source',
+            'category_avg_price', 'keyword_avg_price'
+        ]
+        df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
 
-    print("\n🚀 Step 2: 특성과 타겟 분리 (Feature/Target Separation)")
-    print("=" * 50)
+        # naver_category 컬럼들을 문자열로 변환 (원-핫 인코딩을 위해)
+        for col in ['naver_category1', 'naver_category2', 'naver_category3', 'naver_category4']:
+            if col in df.columns:
+                df[col] = df[col].astype('str')
 
-    # 1. 타겟 변수 설정
-    target = 'price'
-    y = df[target]
+        print("✅ 기본적인 전처리 및 결측치 처리 완료")
 
-    # 2. 특성 변수 설정 (예측에 사용하지 않을 title 컬럼 등 제외)
-    features = df.drop(columns=[target, 'title'])
+        print("\n🚀 Step 2: 특성과 타겟 분리 (Feature/Target Separation)")
+        print("=" * 50)
 
-    # 3. 범주형 특성 원-핫 인코딩 (인코딩할 컬럼 명시)
-    categorical_features = [
-        'category', 'brand', 'seller', 'search_keyword', 'maker'
-    ]
-    # 일부 키워드에서는 maker가 없을 수도 있으므로, 존재하는 컬럼만 인코딩
-    valid_categorical_features = [col for col in categorical_features if col in features.columns]
+        # 1. 타겟 변수 설정 (price 컬럼)
+        target = 'price'
+        y = df[target]
 
-    features_encoded = pd.get_dummies(features, columns=valid_categorical_features, dummy_na=False)
-    print(f"✅ 원-핫 인코딩 완료. 특성 수: {features_encoded.shape[1]}개")
+        # 2. 특성 변수 설정 (예측에 사용하지 않을 title 컬럼 등 제외)
+        features = df.drop(columns=[target, 'title'])
+
+        # 3. 범주형 특성 원-핫 인코딩
+        categorical_features = [
+            'category', 'brand', 'seller', 'search_keyword', 'maker',
+            'naver_category1', 'naver_category2', 'naver_category3', 'naver_category4'
+        ]
+        valid_categorical_features = [col for col in categorical_features if col in features.columns]
+
+        features_encoded = pd.get_dummies(features, columns=valid_categorical_features, dummy_na=False)
+        print(f"✅ 원-핫 인코딩 완료. 특성 수: {features_encoded.shape[1]}개")
 
         print("\n🚀 Step 3: 훈련/테스트 데이터 분리 (Train/Test Split)")
         print("=" * 50)
@@ -100,6 +100,13 @@ def train_price_prediction_model():
             features_encoded, y, test_size=0.2, random_state=42
         )
         print(f"✅ 데이터 분리 완료: 훈련용 {len(X_train)}개, 테스트용 {len(X_test)}개")
+
+        # 데이터 분할 정보 로깅
+        mlflow.log_param("training_samples", len(X_train))
+        mlflow.log_param("test_samples", len(X_test))
+        mlflow.log_param("num_features", X_train.shape[1])
+        mlflow.log_param("test_size", 0.2)
+        mlflow.log_param("random_state", 42)
 
         print("\n🚀 Step 4: 모델 훈련 (Model Training)")
         print("=" * 50)
@@ -114,7 +121,8 @@ def train_price_prediction_model():
             'colsample_bytree': 0.8,
             'random_state': 42,
             'early_stopping_rounds': 50,
-            'enable_categorical': True
+            'enable_categorical': False,  # 원-핫 인코딩을 사용하므로 비활성화
+            'tree_method': 'hist'
         }
 
         # MLflow에 하이퍼파라미터 로깅
@@ -140,13 +148,9 @@ def train_price_prediction_model():
         print("📊 모델 성능 평가:")
         print(f"   - MAE (평균 절대 오차): ${metrics['mae']:.2f}")
         print("     (모델이 예측한 가격과 실제 가격의 평균적인 차이)")
-        print(f"   - R² (결정 계수): {metrics['r2_score']:.2f}")
+        print(f"   - RMSE (평균 제곱근 오차): ${metrics['rmse']:.2f}")
+        print("   - R² (결정 계수): {:.2f}".format(metrics['r2_score']))
         print("     (모델이 데이터의 분산을 얼마나 잘 설명하는지, 1에 가까울수록 좋음)")
-
-        # 데이터 정보 로깅
-        mlflow.log_param("training_samples", len(X_train))
-        mlflow.log_param("test_samples", len(X_test))
-        mlflow.log_param("num_features", X_train.shape[1])
 
         # MLflow에 모델 저장
         mlflow_manager.save_model(
@@ -159,7 +163,7 @@ def train_price_prediction_model():
         # 로컬에도 백업 저장
         output_dir = os.path.join(os.path.dirname(__file__), 'models')
         os.makedirs(output_dir, exist_ok=True)
-        model_path = os.path.join(output_dir, "price_predictor_v1.joblib")
+        model_path = os.path.join(output_dir, f"price_predictor_mlflow_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.joblib")
 
         joblib.dump(model, model_path)
         print(f"\n💾 로컬 백업 저장 완료: {model_path}")
@@ -184,14 +188,21 @@ def train_price_prediction_model():
             if mae_pass and r2_pass:
                 print("🎉 모든 성능 임계값을 통과했습니다!")
                 mlflow.log_param("performance_check", "PASSED")
+
+                # 성능이 좋으면 Production 후보로 등록
+                print("🚀 Production 스테이지로 승격 가능한 모델입니다.")
+                mlflow.log_param("promotion_eligible", "YES")
+
             else:
                 print("⚠️  일부 성능 임계값에 미달했습니다.")
                 mlflow.log_param("performance_check", "FAILED")
+                mlflow.log_param("promotion_eligible", "NO")
 
         except Exception as e:
             print(f"⚠️  성능 임계값 확인 중 오류: {e}")
 
         print("\n✨ MLflow 기반 가격 예측 모델 훈련이 성공적으로 완료되었습니다.")
+        print(f"📈 MLflow UI에서 실험 결과를 확인하세요: http://localhost:5000")
 
 if __name__ == "__main__":
     train_price_prediction_model()

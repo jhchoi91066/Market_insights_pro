@@ -33,7 +33,11 @@ from core.api_optimizer import get_api_optimizer, parse_pagination_params, Pagin
 from core.connection_pool import get_connection_pool, get_read_replica_simulator
 from core.metrics_collector import get_metrics_collector, record_http_request_metric, record_analysis_request_metric
 from core.health_checks import get_health_status, is_healthy
-from core.scraping_monitor import get_scraping_monitor, ScrapingStatus, AlertLevel
+from core.scraping_monitor import get_scraping_monitor, ScrapingStatus
+from core.ml_serving_api import get_ml_serving_service, PricePredictionRequest, PricePredictionResponse, BatchPredictionRequest, BatchPredictionResponse, ModelInfo
+from core.ml_monitoring import get_ml_monitoring_service, ModelHealthReport, AlertLevel
+from core.system_orchestrator import get_system_orchestrator
+from core.performance_optimizer import get_performance_optimizer
 from prometheus_client import CONTENT_TYPE_LATEST
 import time
 
@@ -240,7 +244,25 @@ async def startup_event():
     # 임시로 비활성화하여 HTTP 요청 처리 우선
     # asyncio.create_task(initialize_background_services())
 
+    # 시스템 오케스트레이터 초기화 (백그라운드)
+    asyncio.create_task(initialize_system_orchestrator())
+
     print("✅ Market Insights Pro startup completed!")
+
+async def initialize_system_orchestrator():
+    """시스템 오케스트레이터 초기화"""
+    try:
+        print("🎛️ 시스템 오케스트레이터 초기화 시작...")
+        orchestrator = get_system_orchestrator()
+        success = await orchestrator.initialize_system()
+
+        if success:
+            print("✅ 시스템 오케스트레이터 초기화 완료")
+        else:
+            print("⚠️ 일부 서비스 초기화 실패 (시스템은 계속 작동)")
+
+    except Exception as e:
+        print(f"❌ 시스템 오케스트레이터 초기화 실패: {e}")
 
 async def initialize_background_services():
     """백그라운드 서비스들 초기화"""
@@ -2231,6 +2253,471 @@ async def monitoring_dashboard_ui(request: Request):
     """
 
     return HTMLResponse(content=dashboard_html)
+
+
+# === 🤖 ML 예측 API ===
+@app.post("/api/ml/predict/price", response_model=PricePredictionResponse)
+async def predict_price(request: PricePredictionRequest):
+    """
+    💰 실시간 가격 예측 API
+
+    XGBoost 모델을 사용하여 상품의 예상 가격을 예측합니다.
+    """
+    success = False
+    latency_ms = 0.0
+
+    try:
+        ml_service = get_ml_serving_service()
+        result = await ml_service.predict_price(request)
+        success = True
+        latency_ms = result.processing_time_ms
+
+        # 메트릭 기록
+        metrics_collector = get_metrics_collector()
+        metrics_collector.record_prediction_request("price", result.processing_time_ms)
+
+        # 모니터링 이벤트 기록
+        monitoring_service = get_ml_monitoring_service()
+        monitoring_service.record_prediction_event(
+            model_name="price_predictor",
+            success=success,
+            latency_ms=latency_ms,
+            features=request.dict()
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ 가격 예측 실패: {e}")
+
+        # 실패 이벤트도 모니터링에 기록
+        monitoring_service = get_ml_monitoring_service()
+        monitoring_service.record_prediction_event(
+            model_name="price_predictor",
+            success=False,
+            latency_ms=latency_ms,
+            features=request.dict()
+        )
+
+        raise HTTPException(status_code=500, detail=f"가격 예측 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/ml/predict/batch", response_model=BatchPredictionResponse)
+async def predict_batch(request: BatchPredictionRequest):
+    """
+    📦 배치 가격 예측 API
+
+    여러 상품의 가격을 한 번에 예측합니다.
+    """
+    try:
+        ml_service = get_ml_serving_service()
+        result = await ml_service.predict_batch(request)
+
+        # 메트릭 기록
+        metrics_collector = get_metrics_collector()
+        metrics_collector.record_prediction_request("batch", result.processing_time_ms)
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ 배치 예측 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"배치 예측 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/api/ml/model/{model_name}/info", response_model=ModelInfo)
+async def get_model_info(model_name: str):
+    """
+    📊 모델 정보 조회 API
+
+    특정 모델의 정보와 성능 메트릭을 조회합니다.
+    """
+    try:
+        ml_service = get_ml_serving_service()
+        result = await ml_service.get_model_info(model_name)
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ 모델 정보 조회 실패: {e}")
+        raise HTTPException(status_code=404, detail=f"모델 정보를 찾을 수 없습니다: {str(e)}")
+
+
+@app.post("/api/ml/models/reload")
+async def reload_models():
+    """
+    🔄 모델 재로드 API
+
+    모든 ML 모델을 메모리에서 다시 로드합니다.
+    """
+    try:
+        ml_service = get_ml_serving_service()
+        await ml_service.reload_models()
+        return {"status": "success", "message": "모든 모델이 성공적으로 재로드되었습니다."}
+
+    except Exception as e:
+        logger.error(f"❌ 모델 재로드 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"모델 재로드 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/api/ml/health")
+async def ml_health_check():
+    """
+    🏥 ML 서비스 헬스 체크
+
+    ML 서빙 서비스의 상태를 확인합니다.
+    """
+    try:
+        ml_service = get_ml_serving_service()
+        health_status = await ml_service.health_check()
+
+        if health_status["status"] == "healthy":
+            return health_status
+        else:
+            raise HTTPException(status_code=503, detail=health_status)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ ML 헬스 체크 실패: {e}")
+        raise HTTPException(status_code=503, detail=f"ML 서비스 상태 확인 실패: {str(e)}")
+
+
+# === 📊 ML 모니터링 API ===
+@app.get("/api/ml/monitoring/health/{model_name}", response_model=ModelHealthReport)
+async def get_model_health_report(model_name: str):
+    """
+    📋 모델 헬스 리포트 조회
+
+    특정 모델의 종합적인 건강 상태 리포트를 제공합니다.
+    """
+    try:
+        monitoring_service = get_ml_monitoring_service()
+        report = await monitoring_service.generate_health_report(model_name)
+        return report
+
+    except Exception as e:
+        logger.error(f"❌ 헬스 리포트 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"헬스 리포트 생성 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/api/ml/monitoring/dashboard")
+async def get_ml_monitoring_dashboard():
+    """
+    🎛️ ML 모니터링 대시보드 데이터
+
+    전체 ML 시스템의 모니터링 대시보드 데이터를 제공합니다.
+    """
+    try:
+        monitoring_service = get_ml_monitoring_service()
+        dashboard_data = monitoring_service.get_monitoring_dashboard_data()
+
+        return {
+            "status": "success",
+            "data": dashboard_data,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 대시보드 데이터 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"대시보드 데이터 조회 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/api/ml/monitoring/alerts")
+async def get_ml_alerts(limit: int = 50):
+    """
+    🚨 ML 시스템 알림 조회
+
+    최근 ML 시스템 알림들을 조회합니다.
+    """
+    try:
+        monitoring_service = get_ml_monitoring_service()
+        alerts = list(monitoring_service.alerts)[-limit:]
+
+        # 직렬화 가능한 형태로 변환
+        serialized_alerts = []
+        for alert in alerts:
+            serialized_alerts.append({
+                "alert_id": alert.alert_id,
+                "level": alert.level.value,
+                "title": alert.title,
+                "description": alert.description,
+                "metric_name": alert.metric_name,
+                "current_value": alert.current_value,
+                "expected_range": alert.expected_range,
+                "timestamp": alert.timestamp.isoformat(),
+                "model_name": alert.model_name
+            })
+
+        return {
+            "status": "success",
+            "alerts": serialized_alerts,
+            "total": len(serialized_alerts)
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 알림 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"알림 조회 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/ml/monitoring/start")
+async def start_ml_monitoring():
+    """
+    🟢 ML 모니터링 시작
+
+    ML 모니터링 서비스를 시작합니다.
+    """
+    try:
+        monitoring_service = get_ml_monitoring_service()
+        monitoring_service.start_monitoring()
+
+        return {
+            "status": "success",
+            "message": "ML 모니터링이 시작되었습니다.",
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 모니터링 시작 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"모니터링 시작 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/ml/monitoring/stop")
+async def stop_ml_monitoring():
+    """
+    🔴 ML 모니터링 중지
+
+    ML 모니터링 서비스를 중지합니다.
+    """
+    try:
+        monitoring_service = get_ml_monitoring_service()
+        monitoring_service.stop_monitoring()
+
+        return {
+            "status": "success",
+            "message": "ML 모니터링이 중지되었습니다.",
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 모니터링 중지 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"모니터링 중지 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/ml/monitoring/record-prediction")
+async def record_prediction_event(
+    model_name: str,
+    success: bool,
+    latency_ms: float,
+    features: Optional[Dict[str, Any]] = None
+):
+    """
+    📝 예측 이벤트 기록
+
+    ML 예측 이벤트를 모니터링 시스템에 기록합니다.
+    """
+    try:
+        monitoring_service = get_ml_monitoring_service()
+        monitoring_service.record_prediction_event(
+            model_name=model_name,
+            success=success,
+            latency_ms=latency_ms,
+            features=features or {}
+        )
+
+        return {
+            "status": "success",
+            "message": "예측 이벤트가 기록되었습니다."
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 예측 이벤트 기록 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"예측 이벤트 기록 중 오류가 발생했습니다: {str(e)}")
+
+
+# === 🎛️ 시스템 관리 API ===
+@app.get("/api/system/status")
+async def get_system_status():
+    """
+    🎛️ 전체 시스템 상태 조회
+
+    모든 서비스의 상태, 헬스, 메트릭을 종합적으로 제공합니다.
+    """
+    try:
+        orchestrator = get_system_orchestrator()
+        system_status = await orchestrator.get_system_status()
+        return system_status
+
+    except Exception as e:
+        logger.error(f"❌ 시스템 상태 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"시스템 상태 조회 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/system/service/{service_name}/restart")
+async def restart_service(service_name: str):
+    """
+    🔄 개별 서비스 재시작
+
+    특정 서비스를 재시작합니다.
+    """
+    try:
+        orchestrator = get_system_orchestrator()
+        success = await orchestrator.restart_service(service_name)
+
+        if success:
+            return {
+                "status": "success",
+                "message": f"{service_name} 서비스가 성공적으로 재시작되었습니다.",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(status_code=500, detail=f"{service_name} 서비스 재시작에 실패했습니다.")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 서비스 재시작 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"서비스 재시작 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/system/maintenance")
+async def run_system_maintenance():
+    """
+    🔧 시스템 유지보수 실행
+
+    전체 시스템의 유지보수 작업을 실행합니다.
+    """
+    try:
+        orchestrator = get_system_orchestrator()
+        await orchestrator.run_maintenance()
+
+        return {
+            "status": "success",
+            "message": "시스템 유지보수가 완료되었습니다.",
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 시스템 유지보수 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"시스템 유지보수 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/api/system/info")
+async def get_system_info():
+    """
+    ℹ️ 시스템 정보 조회
+
+    시스템 버전, 구성, 환경 정보를 제공합니다.
+    """
+    try:
+        orchestrator = get_system_orchestrator()
+
+        return {
+            "system": {
+                "name": "Market Insights Pro",
+                "version": "2.0.0",
+                "description": "AI-powered e-commerce market analysis platform",
+                "environment": "development",
+                "features": [
+                    "Naver Shopping API integration",
+                    "Real-time ML predictions",
+                    "Automated ML pipelines",
+                    "ML model monitoring",
+                    "Data quality monitoring",
+                    "Performance analytics"
+                ]
+            },
+            "ml_models": {
+                "price_predictor": {
+                    "algorithm": "XGBoost",
+                    "purpose": "Product price prediction",
+                    "features": ["category", "brand", "rating", "review_count", "seller"]
+                },
+                "demand_forecaster": {
+                    "algorithm": "Prophet",
+                    "purpose": "Demand forecasting",
+                    "features": ["search_trends", "seasonality", "external_factors"]
+                }
+            },
+            "apis": {
+                "prediction": "/api/ml/predict/*",
+                "monitoring": "/api/ml/monitoring/*",
+                "system": "/api/system/*",
+                "analysis": "/api/analyze"
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 시스템 정보 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"시스템 정보 조회 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/system/optimize")
+async def optimize_system_performance():
+    """
+    ⚡ 시스템 성능 최적화
+
+    전체 시스템의 성능을 최적화합니다.
+    """
+    try:
+        optimizer = get_performance_optimizer()
+        results = await optimizer.optimize_all_systems()
+
+        return {
+            "status": "success",
+            "message": "시스템 성능 최적화가 완료되었습니다.",
+            "optimization_results": results,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 시스템 최적화 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"시스템 최적화 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/api/system/performance")
+async def get_system_performance_metrics():
+    """
+    📊 시스템 성능 메트릭 조회
+
+    현재 시스템의 성능 메트릭을 조회합니다.
+    """
+    try:
+        optimizer = get_performance_optimizer()
+        metrics = optimizer.get_current_performance_metrics()
+
+        return {
+            "status": "success",
+            "metrics": metrics,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 성능 메트릭 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"성능 메트릭 조회 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/system/benchmark")
+async def run_performance_benchmark():
+    """
+    🏃 성능 벤치마크 실행
+
+    시스템 성능 벤치마크 테스트를 실행합니다.
+    """
+    try:
+        optimizer = get_performance_optimizer()
+        benchmark_results = await optimizer.run_performance_benchmark()
+
+        return {
+            "status": "success",
+            "message": "성능 벤치마크가 완료되었습니다.",
+            "benchmark_results": benchmark_results,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 성능 벤치마크 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"성능 벤치마크 중 오류가 발생했습니다: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

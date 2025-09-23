@@ -1,0 +1,73 @@
+# MLflow 설정 파일
+# Market Insights Pro MLOps 설정
+
+# 실험 추적 서버 설정
+tracking_server:
+  host: "0.0.0.0"
+  port: 5000
+  backend_store_uri: "sqlite:///data/mlflow.db"
+  default_artifact_root: "./data/mlruns"
+
+# 모델 레지스트리 설정
+model_registry:
+  database_url: "sqlite:///data/mlflow.db"
+
+# 실험 설정
+experiments:
+  price_prediction:
+    name: "price_prediction"
+    description: "가격 예측 모델 실험"
+    tags:
+      team: "market_insights"
+      model_type: "regression"
+
+  demand_forecasting:
+    name: "demand_forecasting"
+    description: "수요 예측 모델 실험"
+    tags:
+      team: "market_insights"
+      model_type: "time_series"
+
+  opportunity_recommendation:
+    name: "opportunity_recommendation"
+    description: "시장 기회 추천 시스템 실험"
+    tags:
+      team: "market_insights"
+      model_type: "recommendation"
+
+# 모델 스테이지 설정
+model_stages:
+  - "None"
+  - "Staging"
+  - "Production"
+  - "Archived"
+
+# 자동 실험 추적 설정
+auto_logging:
+  sklearn: true
+  xgboost: true
+  pytorch: false
+  tensorflow: false
+
+# 성능 메트릭 임계값
+performance_thresholds:
+  price_prediction:
+    mae_threshold: 50.0  # Mean Absolute Error (달러)
+    rmse_threshold: 100.0  # Root Mean Square Error
+    r2_threshold: 0.8  # R-squared
+
+  demand_forecasting:
+    mape_threshold: 15.0  # Mean Absolute Percentage Error
+    rmse_threshold: 20.0
+
+  recommendation:
+    precision_threshold: 0.7
+    recall_threshold: 0.6
+    f1_threshold: 0.65
+
+# 모델 재학습 트리거 조건
+retraining_triggers:
+  data_drift_threshold: 0.1
+  performance_degradation_threshold: 0.15
+  minimum_samples_required: 100
+  maximum_days_without_retraining: 30

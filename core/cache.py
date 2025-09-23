@@ -17,26 +17,37 @@ class CacheManager:
     
     def __init__(self, host='localhost', port=6379, db=0, decode_responses=True):
         """
-        Redis 연결 초기화
-        
+        Redis 연결 초기화 (성능 최적화 버전)
+
         Args:
             host: Redis 서버 호스트
-            port: Redis 서버 포트 
+            port: Redis 서버 포트
             db: 데이터베이스 번호
             decode_responses: 응답 자동 디코딩 여부
         """
         try:
-            self.redis_client = redis.Redis(
-                host=host, 
-                port=port, 
-                db=db, 
+            # 성능 최적화: 연결 풀 사용
+            self.connection_pool = redis.ConnectionPool(
+                host=host,
+                port=port,
+                db=db,
                 decode_responses=decode_responses,
                 socket_connect_timeout=5,
-                socket_timeout=5
+                socket_timeout=5,
+                max_connections=20,  # 최대 연결 수
+                retry_on_timeout=True,
+                health_check_interval=30
             )
+
+            self.redis_client = redis.Redis(connection_pool=self.connection_pool)
+
             # 연결 테스트
             self.redis_client.ping()
-            logger.info("✅ Redis connection established successfully")
+            logger.info("✅ Redis connection pool established successfully")
+
+            # 성능 최적화: 자주 사용되는 키 패턴 캐시
+            self._key_cache = {}
+
         except redis.ConnectionError as e:
             logger.error(f"❌ Failed to connect to Redis: {e}")
             raise
@@ -125,6 +136,75 @@ class CacheManager:
         except Exception as e:
             logger.error(f"❌ Error retrieving cached analysis for '{keyword}': {e}")
             return None
+
+    async def get_multiple(self, keys: List[str]) -> Dict[str, Any]:
+        """
+        여러 키를 한 번에 조회 (성능 최적화)
+
+        Args:
+            keys: 조회할 키 목록
+
+        Returns:
+            키-값 딕셔너리
+        """
+        try:
+            if not keys:
+                return {}
+
+            # 파이프라인을 사용한 배치 조회
+            pipe = self.redis_client.pipeline()
+            for key in keys:
+                pipe.get(key)
+
+            results = pipe.execute()
+
+            # 결과 매핑
+            result_dict = {}
+            for key, value in zip(keys, results):
+                if value:
+                    try:
+                        result_dict[key] = json.loads(value)
+                    except json.JSONDecodeError:
+                        result_dict[key] = value
+
+            logger.info(f"📦 배치 캐시 조회 완료: {len(result_dict)}/{len(keys)} 히트")
+            return result_dict
+
+        except Exception as e:
+            logger.error(f"❌ 배치 캐시 조회 실패: {e}")
+            return {}
+
+    async def set_multiple(self, items: Dict[str, Any], ttl: int = 3600) -> bool:
+        """
+        여러 키-값을 한 번에 저장 (성능 최적화)
+
+        Args:
+            items: 저장할 키-값 딕셔너리
+            ttl: TTL (초)
+
+        Returns:
+            성공 여부
+        """
+        try:
+            if not items:
+                return True
+
+            # 파이프라인을 사용한 배치 저장
+            pipe = self.redis_client.pipeline()
+            for key, value in items.items():
+                serialized_value = json.dumps(value, ensure_ascii=False)
+                pipe.setex(key, ttl, serialized_value)
+
+            results = pipe.execute()
+
+            success_count = sum(1 for result in results if result)
+            logger.info(f"📦 배치 캐시 저장 완료: {success_count}/{len(items)} 성공")
+
+            return success_count == len(items)
+
+        except Exception as e:
+            logger.error(f"❌ 배치 캐시 저장 실패: {e}")
+            return False
 
     def delete_analysis_result(self, keyword: str) -> bool:
         """

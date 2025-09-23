@@ -221,6 +221,21 @@ class PrometheusMetrics:
             registry=self.registry
         )
 
+        # === ML 예측 메트릭 ===
+        self.prediction_requests_total = Counter(
+            'market_insights_prediction_requests_total',
+            'Total ML prediction requests',
+            ['type'],
+            registry=self.registry
+        )
+
+        self.prediction_processing_duration = Histogram(
+            'market_insights_prediction_processing_duration_seconds',
+            'ML prediction processing duration',
+            ['type'],
+            registry=self.registry
+        )
+
         # === 시스템 메트릭 ===
         self.system_cpu_percent = Gauge(
             'market_insights_system_cpu_percent',
@@ -494,6 +509,15 @@ class MetricsCollector:
     def record_business_event(self, event_type: str, count: int = 1):
         """비즈니스 이벤트 기록"""
         self.business_counters[event_type] += count
+
+    def record_prediction_request(self, prediction_type: str, processing_time_ms: float):
+        """ML 예측 요청 메트릭 기록"""
+        # 예측 요청 카운터 증가
+        self.business_counters[f'prediction_requests_{prediction_type}'] += 1
+
+        # Prometheus 메트릭 기록
+        self.prometheus_metrics.prediction_requests_total.labels(type=prediction_type).inc()
+        self.prometheus_metrics.prediction_processing_duration.labels(type=prediction_type).observe(processing_time_ms / 1000)  # 초 단위로 변환
 
     def get_current_metrics(self) -> Dict[str, Any]:
         """현재 메트릭 조회"""
