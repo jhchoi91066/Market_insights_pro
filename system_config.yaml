@@ -1,0 +1,44 @@
+auto_recovery:
+  enabled: true
+  max_retry_attempts: 3
+  retry_delay_seconds: 30
+services:
+  cache:
+    dependencies: []
+    enabled: true
+    health_check_interval: 60
+  kafka:
+    dependencies: []
+    enabled: true
+    health_check_interval: 60
+  metrics:
+    dependencies: []
+    enabled: true
+    health_check_interval: 30
+  ml_monitoring:
+    dependencies:
+    - mlflow
+    - ml_serving
+    - cache
+    - metrics
+    enabled: true
+    health_check_interval: 120
+  ml_orchestrator:
+    dependencies:
+    - mlflow
+    enabled: true
+    health_check_interval: 300
+  ml_serving:
+    dependencies:
+    - cache
+    - mlflow
+    enabled: true
+    health_check_interval: 60
+  mlflow:
+    dependencies: []
+    enabled: true
+    health_check_interval: 120
+system:
+  environment: development
+  name: Market Insights Pro
+  version: 2.0.0

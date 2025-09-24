@@ -1,0 +1,19 @@
+artifact_path: model
+flavors:
+  python_function:
+    artifacts:
+      prophet_model:
+        path: artifacts/demand_forecaster_mlflow_20250924_214648.pkl
+        uri: "/Users/jinhochoi/Desktop/\uAC1C\uBC1C/Market_insights/ml_pipeline/models/demand_forecaster_mlflow_20250924_214648.pkl"
+    cloudpickle_version: 2.2.1
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pyfunc.model
+    python_model: python_model.pkl
+    python_version: 3.11.9
+mlflow_version: 2.8.1
+model_size_bytes: 76816
+model_uuid: ee0689fbab4b47beabcdb1372d558d52
+run_id: 7957167124c44459aef25756185f067a
+utc_time_created: '2025-09-24 13:09:37.118773'

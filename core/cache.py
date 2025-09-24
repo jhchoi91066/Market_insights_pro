@@ -111,20 +111,67 @@ class CacheManager:
             logger.error(f"❌ Error caching analysis result for '{keyword}': {e}")
             return False
 
+    async def get(self, key: str) -> Optional[Dict[str, Any]]:
+        """
+        범용 캐시 조회 메서드 (비동기)
+
+        Args:
+            key: 캐시 키
+
+        Returns:
+            캐시된 데이터 (없으면 None)
+        """
+        try:
+            cached_data = self.redis_client.get(key)
+
+            if cached_data:
+                result = json.loads(cached_data)
+                logger.info(f"🎯 Cache HIT for key: '{key}'")
+                return result
+            else:
+                logger.info(f"🔍 Cache MISS for key: '{key}'")
+                return None
+
+        except Exception as e:
+            logger.error(f"❌ Error retrieving cached data for key '{key}': {e}")
+            return None
+
+    async def set(self, key: str, data: Any, ttl: int = 3600) -> bool:
+        """
+        범용 캐시 저장 메서드 (비동기)
+
+        Args:
+            key: 캐시 키
+            data: 저장할 데이터
+            ttl: TTL (초 단위)
+
+        Returns:
+            저장 성공 여부
+        """
+        try:
+            json_data = json.dumps(data, ensure_ascii=False, default=str)
+            self.redis_client.setex(key, ttl, json_data)
+            logger.info(f"💾 Cache SET for key: '{key}' (TTL: {ttl}s)")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Error storing cached data for key '{key}': {e}")
+            return False
+
     def get_analysis_result(self, keyword: str) -> Optional[Dict[str, Any]]:
         """
         분석 결과 캐시 조회
-        
+
         Args:
             keyword: 분석 키워드
-            
+
         Returns:
             캐시된 분석 결과 (없으면 None)
         """
         try:
             key = self._generate_key("analysis", keyword)
             cached_data = self.redis_client.get(key)
-            
+
             if cached_data:
                 result = json.loads(cached_data)
                 logger.info(f"🎯 Cache HIT for analysis: '{keyword}'")
@@ -132,7 +179,7 @@ class CacheManager:
             else:
                 logger.info(f"🔍 Cache MISS for analysis: '{keyword}'")
                 return None
-                
+
         except Exception as e:
             logger.error(f"❌ Error retrieving cached analysis for '{keyword}': {e}")
             return None

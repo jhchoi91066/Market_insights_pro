@@ -5,12 +5,12 @@
 tracking_server:
   host: "0.0.0.0"
   port: 5000
-  backend_store_uri: "sqlite:///data/mlflow.db"
-  default_artifact_root: "./data/mlruns"
+  backend_store_uri: "file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns"
+  default_artifact_root: "/Users/jinhochoi/Desktop/개발/Market_insights/mlruns"
 
 # 모델 레지스트리 설정
 model_registry:
-  database_url: "sqlite:///data/mlflow.db"
+  database_url: "file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns"
 
 # 실험 설정
 experiments:

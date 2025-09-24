@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns/496269010794009124/301d7fc9e249477b9ab4b7b2663f5c2d/artifacts
+end_time: 1758719248202
+entry_point_name: ''
+experiment_id: '496269010794009124'
+lifecycle_stage: active
+run_id: 301d7fc9e249477b9ab4b7b2663f5c2d
+run_name: sincere-smelt-199
+run_uuid: 301d7fc9e249477b9ab4b7b2663f5c2d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758719247978
+status: 4
+tags: []
+user_id: jinhochoi

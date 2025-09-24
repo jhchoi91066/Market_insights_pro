@@ -1,0 +1,14 @@
+aliases: []
+creation_timestamp: 1758719247973
+current_stage: Production
+description: null
+last_updated_timestamp: 1758719248203
+name: price_predictor
+run_id: 3d6303dff70e4f00b75d555ad0e264c4
+run_link: null
+source: file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns/907201847521580783/3d6303dff70e4f00b75d555ad0e264c4/artifacts/model
+status: READY
+status_message: null
+storage_location: file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns/907201847521580783/3d6303dff70e4f00b75d555ad0e264c4/artifacts/model
+user_id: null
+version: 1

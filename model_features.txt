@@ -1,0 +1,575 @@
+0: rating
+1: review_count
+2: purchased_last_month
+3: is_prime
+4: price_to_category_avg_ratio
+5: price_to_keyword_avg_ratio
+6: price_x_rating
+7: rating_x_review_count
+8: price_x_review_count
+9: category_디지털/가전 > 모니터
+10: category_디지털/가전 > 음향가전 > 블루투스셋 > 블루투스이어폰/이어셋
+11: category_디지털/가전 > 주변기기 > 마우스 > 무선마우스
+12: category_디지털/가전 > 주변기기 > 마우스 > 유선마우스
+13: category_디지털/가전 > 주변기기 > 마우스 > 프리젠터
+14: category_디지털/가전 > 주변기기 > 키보드 > 무선키보드
+15: category_디지털/가전 > 주변기기 > 키보드 > 유선키보드
+16: category_생활/건강 > 주방용품 > 보관/밀폐용기 > 물병
+17: category_스포츠/레저 > 캠핑 > 캠핑가구 > 캠핑의자
+18: category_식품 > 음료 > 커피 > 원두/생두
+19: brand_AULA
+20: brand_Apple
+21: brand_BOB
+22: brand_CHERRY
+23: brand_CMF
+24: brand_COX
+25: brand_DAREU
+26: brand_FNR
+27: brand_JBL
+28: brand_KEEP
+29: brand_KOMAX
+30: brand_LG그램
+31: brand_LG전자
+32: brand_MSI
+33: brand_NAVEE
+34: brand_POLY
+35: brand_QCY
+36: brand_QSENN
+37: brand_RAZER
+38: brand_RNRN
+39: brand_SPM
+40: brand_Unknown
+41: brand_갤럭시
+42: brand_골든나인
+43: brand_꼬미딜
+44: brand_날진
+45: brand_넘버엔
+46: brand_네이처하이크
+47: brand_노브랜드
+48: brand_노스피크
+49: brand_뉴웨스트커피
+50: brand_다크브릭스
+51: brand_더써드로스터스
+52: brand_덕힙
+53: brand_델몬트
+54: brand_두유니드커피
+55: brand_라바짜
+56: brand_라익미
+57: brand_락셀
+58: brand_락앤락
+59: brand_람주
+60: brand_래빗커피
+61: brand_레드빈
+62: brand_레드코코
+63: brand_레토
+64: brand_로랜텍
+65: brand_로이체
+66: brand_로지텍
+67: brand_로지텍G
+68: brand_로티캠프
+69: brand_루미낙
+70: brand_루비아
+71: brand_르모네
+72: brand_릴팡
+73: brand_마운트리버
+74: brand_마추픽추
+75: brand_매드독캠프
+76: brand_맥스틸
+77: brand_모모스커피
+78: brand_몬테라
+79: brand_바라던커피
+80: brand_바워스앤윌킨스
+81: brand_바이굿즈
+82: brand_백당커피공장
+83: brand_밴프
+84: brand_버팔로
+85: brand_베러베스트커피
+86: brand_베이니크
+87: brand_베이스어스
+88: brand_벤큐
+89: brand_본플래그
+90: brand_볼티움
+91: brand_뷰피니티
+92: brand_브리즈문
+93: brand_브리즈빈
+94: brand_브리즈피크
+95: brand_브리츠
+96: brand_블라우풍트
+97: brand_블랙빈스
+98: brand_블랜더보틀
+99: brand_삼대오백
+100: brand_삼성
+101: brand_샥즈
+102: brand_센트팜
+103: brand_소니
+104: brand_수달리
+105: brand_스노우피크
+106: brand_스마트모니터
+107: brand_스마트포인터
+108: brand_스케이터
+109: brand_스타벅스
+110: brand_스텐락
+111: brand_스피엘
+112: brand_쏘빗
+113: brand_아우라
+114: brand_아이노트
+115: brand_아이락스
+116: brand_아이리버
+117: brand_아임핏
+118: brand_알래스카블랙
+119: brand_알맹
+120: brand_알파스캔
+121: brand_앱코
+122: brand_어쉐어
+123: brand_에센티아팩토리
+124: brand_에스메랄다
+125: brand_엑스포인터
+126: brand_엑토
+127: brand_엠스톤
+128: brand_엠지텍
+129: brand_오니지
+130: brand_오디세이
+131: brand_오슬로
+132: brand_오아
+133: brand_와이드뷰
+134: brand_울트라기어
+135: brand_울트라와이드
+136: brand_워너빈
+137: brand_원두반점
+138: brand_원스위크라이프
+139: brand_유맥스
+140: brand_인터픽셀
+141: brand_일렉싱크
+142: brand_일리
+143: brand_일프로커피
+144: brand_제뉴인
+145: brand_제닉스크리에이티브
+146: brand_제로웨이트
+147: brand_젬스트
+148: brand_주닷
+149: brand_지오프리
+150: brand_지클릭커
+151: brand_지프
+152: brand_카고컨테이너
+153: brand_카나모
+154: brand_카디움
+155: brand_카멜
+156: brand_카즈미
+157: brand_캠프빌리지
+158: brand_커세어
+159: brand_커클랜드
+160: brand_커피볶는집
+161: brand_커피창고
+162: brand_코누
+163: brand_코베아
+164: brand_코시
+165: brand_콜맨
+166: brand_콩볶는사람들
+167: brand_콩스콩스
+168: brand_쿠디
+169: brand_쿠스포츠
+170: brand_크로스오버
+171: brand_키친아트
+172: brand_키크론
+173: brand_킹콩팩토리
+174: brand_타파웨어
+175: brand_테라로사
+176: brand_토조
+177: brand_트루버
+178: brand_티버디
+179: brand_펄사
+180: brand_폴바셋
+181: brand_프로쉐이커
+182: brand_프리플로우
+183: brand_플랜40
+184: brand_피스넷
+185: brand_필더컵
+186: brand_필립스
+187: brand_필립스모니터
+188: brand_필립스오디오
+189: brand_하루의시간
+190: brand_한샘
+191: brand_한성컴퓨터
+192: brand_해커
+193: brand_헤베커피
+194: brand_헬리녹스
+195: seller_2gn
+196: seller_BONFLAG
+197: seller_Besthall
+198: seller_BreezeMoon
+199: seller_CHERRY 체리키보드
+200: seller_CUCERA
+201: seller_DELESHOP
+202: seller_FNR
+203: seller_HKPHONE
+204: seller_Helinox
+205: seller_JVR
+206: seller_LAKSELV
+207: seller_LG전자인증점 DHCNC
+208: seller_LG전자인증점 신영플러스
+209: seller_LG전자인증점 지오비전
+210: seller_MEGACOFFEE
+211: seller_N정품 쇼핑몰
+212: seller_O-ma
+213: seller_SSG닷컴
+214: seller_STORE벅스
+215: seller_STORYLiNK
+216: seller_Tiqui-Taca-BRO
+217: seller_Titicaca
+218: seller_Woods Coffee
+219: seller_duckhip
+220: seller_e파인드리빙
+221: seller_illy store
+222: seller_marketrush
+223: seller_ono market
+224: seller_spm
+225: seller_가온인터내셔날
+226: seller_간결커피로스터스
+227: seller_감성캠핑 로고스
+228: seller_고래커피
+229: seller_골든나인
+230: seller_그냥 커피
+231: seller_그라도스커피
+232: seller_그리니.
+233: seller_김씨하우스
+234: seller_꼬미딜
+235: seller_낫싱 공식스토어
+236: seller_네이버
+237: seller_네이쳐플레이스
+238: seller_뉴웨스트커피
+239: seller_니드커피
+240: seller_다다키친
+241: seller_다얼유 게이밍샵
+242: seller_다이아몬드그램
+243: seller_다크브릭스
+244: seller_댕댕이캠핑
+245: seller_더써드로스터스
+246: seller_더캠프빌리지
+247: seller_덕주방
+248: seller_드림팩토리샵
+249: seller_디어다니
+250: seller_디엘유통
+251: seller_따봉몰.
+252: seller_라가커피
+253: seller_라이빙
+254: seller_라인코 원두커피
+255: seller_래빗커피
+256: seller_레드코코-REDKOCO
+257: seller_레스트빈
+258: seller_로스터릭
+259: seller_로스팅커피원두도매납품쇼핑몰
+260: seller_로지텍공식스토어
+261: seller_로지텍정품스토어
+262: seller_로티몰닷컴
+263: seller_루비아 커피
+264: seller_르모네
+265: seller_리 그
+266: seller_리빙인저머니
+267: seller_맘스캠핑
+268: seller_매드독캠프
+269: seller_맥스틸 공식스토어
+270: seller_메이데이31
+271: seller_모니터 전문 정품 판매점
+272: seller_모닥불캠핑 거제점
+273: seller_모르포
+274: seller_모모스커피
+275: seller_모사오카
+276: seller_무드in하우스
+277: seller_미니코코몰
+278: seller_미스터송
+279: seller_미티어소원
+280: seller_바라던커피
+281: seller_바이굿즈
+282: seller_배드머슬러
+283: seller_백당커피공장
+284: seller_밴프
+285: seller_버팔로 캠핑
+286: seller_베러베스트
+287: seller_베이니크샵
+288: seller_보틀스
+289: seller_볼티움
+290: seller_브리즈피크
+291: seller_브리츠 공식몰
+292: seller_브리츠공식스토어
+293: seller_블라우풍트
+294: seller_블랙빈스 커피
+295: seller_비욘드퍼니싱
+296: seller_비트 박스
+297: seller_빈마켓
+298: seller_빈스메이드
+299: seller_살림의 힘
+300: seller_삼대오백 스토어
+301: seller_삼성JBL온라인스토어
+302: seller_삼성공식파트너 엠디텍
+303: seller_삼성공식파트너 엠디텍PC
+304: seller_삼성공식파트너 오제앤에스
+305: seller_삼성공식파트너 제이유
+306: seller_삼성공식파트너사 포디아이
+307: seller_삼성스마트쇼핑스토어
+308: seller_삼성인증모니터파트너
+309: seller_샥즈 코리아
+310: seller_서원리빙
+311: seller_설빈
+312: seller_성정마트
+313: seller_세네카 커피
+314: seller_센트팜
+315: seller_솔루딕캠핑
+316: seller_송마리커피집
+317: seller_쇼핑 Pay
+318: seller_수달리커피
+319: seller_쉐이크스피어
+320: seller_스노우커피
+321: seller_스마트 Inc
+322: seller_스윗소다
+323: seller_시골커피
+324: seller_쏘빗 공식몰
+325: seller_아이덴티티커피랩
+326: seller_아이리버 공식대리점 샤후후
+327: seller_아이리버스토어
+328: seller_아이언빅
+329: seller_아임핏
+330: seller_알맹키즈
+331: seller_액티브라이프
+332: seller_어쉐어
+333: seller_얼리텍
+334: seller_에디샵 공식판매점
+335: seller_에센티아 팩토리
+336: seller_에이디바이크
+337: seller_오늘새로
+338: seller_오니지
+339: seller_오렌지스펙트럼
+340: seller_올댓픽
+341: seller_와이드뷰
+342: seller_와이엘사이언스
+343: seller_와이제이바스켓
+344: seller_와이피게이밍기어
+345: seller_왕도매 아울렛
+346: seller_워너빈 커피
+347: seller_원당커피공장
+348: seller_원두반점
+349: seller_원두천국
+350: seller_원스위크라이프
+351: seller_위즈플래닛
+352: seller_유로키친
+353: seller_유리카트
+354: seller_이너프812
+355: seller_이든리빙
+356: seller_이리디아
+357: seller_이수팩토리로스터즈
+358: seller_인디에이
+359: seller_일등대한민국
+360: seller_일리천국
+361: seller_일프로커피
+362: seller_잇츠레저
+363: seller_제뉴인커피
+364: seller_제로웨이트
+365: seller_지포모아
+366: seller_직구플리즈
+367: seller_캐주얼캠핑
+368: seller_캠핑레시피
+369: seller_캠핑멀티샵
+370: seller_캠핑토크
+371: seller_커스텀 커피 마켓
+372: seller_커피마켓어스
+373: seller_커피볶는집
+374: seller_커피창고
+375: seller_커피포레스트
+376: seller_케이트마켓
+377: seller_코스트코이케아
+378: seller_코시
+379: seller_코코로운
+380: seller_코코장수몰
+381: seller_콩볶는사람들
+382: seller_콩스콩스
+383: seller_쿠스포츠
+384: seller_쿠팡
+385: seller_쿡샵
+386: seller_퀘스트빈
+387: seller_키크론 공식스토어
+388: seller_킹콩팩토리.
+389: seller_탑 플레이스
+390: seller_티에스shop
+391: seller_티타임커피
+392: seller_팔공티앤씨
+393: seller_펀키스
+394: seller_포랩스커피컴퍼니
+395: seller_포올
+396: seller_프라이스킬
+397: seller_프라이티마켓
+398: seller_프리플로우
+399: seller_플랜포티
+400: seller_플롬아웃도어 울산점
+401: seller_피쉬앤카
+402: seller_피에스퍼니싱
+403: seller_필더컵
+404: seller_필로비
+405: seller_하루의 시간
+406: seller_한성컴퓨터
+407: seller_헤베커피
+408: seller_헬로우캠핑
+409: seller_헬린이상점
+410: seller_헬킹콩
+411: seller_홈니크
+412: search_keyword_마우스
+413: search_keyword_모니터
+414: search_keyword_물통
+415: search_keyword_블루투스 이어폰
+416: search_keyword_캠핑 의자
+417: search_keyword_커피 원두
+418: search_keyword_키보드
+419: maker_AKT
+420: maker_AULA
+421: maker_Apple
+422: maker_BOB
+423: maker_CHERRY
+424: maker_COX
+425: maker_FLESPORTS
+426: maker_KOMAX
+427: maker_LG전자
+428: maker_MSI
+429: maker_QCY
+430: maker_QSENN
+431: maker_RAZER
+432: maker_SPM
+433: maker_TOGRAN
+434: maker_Unknown
+435: maker_간결커피로스터스
+436: maker_날진
+437: maker_네이처하이크
+438: maker_뉴웨스트커피
+439: maker_다얼유
+440: maker_다크브릭스
+441: maker_더써드로스터스
+442: maker_라바짜
+443: maker_라익미
+444: maker_라인코
+445: maker_락앤락
+446: maker_레드빈
+447: maker_레토
+448: maker_레토지엠에스
+449: maker_로랜텍
+450: maker_로이체
+451: maker_로지레스
+452: maker_로지텍
+453: maker_로티
+454: maker_릴팡
+455: maker_마당발
+456: maker_마추픽추
+457: maker_맥스틸
+458: maker_몽돌
+459: maker_바라던커피
+460: maker_바워스앤윌킨스
+461: maker_백당커피공장
+462: maker_베러베스트커피
+463: maker_베이스어스
+464: maker_벤큐
+465: maker_보틀스
+466: maker_브리즈문
+467: maker_브리츠
+468: maker_블라우풍트
+469: maker_블랙빈스
+470: maker_비니시클
+471: maker_비에프엘
+472: maker_삼성전자
+473: maker_삼지아이티
+474: maker_소니
+475: maker_스노우피크
+476: maker_스케이터
+477: maker_스타벅스
+478: maker_스피엘
+479: maker_아로마빌커피
+480: maker_아이락스
+481: maker_아이리버
+482: maker_아이에이커머스
+483: maker_알맹
+484: maker_알파스캔
+485: maker_앱코
+486: maker_에센티아팩토리
+487: maker_에스앤제이스토어
+488: maker_에이플러스엑스
+489: maker_엑토
+490: maker_엠스톤글로벌
+491: maker_엠엔지이
+492: maker_엠지텍
+493: maker_오니지
+494: maker_오아
+495: maker_우드인터내셔날
+496: maker_워너빈로스터리
+497: maker_유맥스
+498: maker_익스프레스럭코리아
+499: maker_인터픽셀
+500: maker_일디오
+501: maker_일렉싱크
+502: maker_일리
+503: maker_일프로커피컴퍼니
+504: maker_제뉴인
+505: maker_제닉스크리에이티브
+506: maker_젬스트
+507: maker_주닷
+508: maker_지오라인
+509: maker_지클릭커
+510: maker_지프
+511: maker_청연엠엔에스
+512: maker_초이스테크놀로지
+513: maker_카고컨테이너
+514: maker_카라신
+515: maker_카멜
+516: maker_카즈미
+517: maker_커세어
+518: maker_커피디오리진
+519: maker_커피마켓어스
+520: maker_커피포레스트
+521: maker_코뉴
+522: maker_코베아
+523: maker_코스트코
+524: maker_콜맨
+525: maker_콩볶는사람들
+526: maker_콩스콩스
+527: maker_쿠디
+528: maker_쿠스포츠
+529: maker_크로스오버존
+530: maker_키친아트
+531: maker_키크론
+532: maker_타파웨어
+533: maker_토조
+534: maker_트래딧
+535: maker_트루버
+536: maker_티타임
+537: maker_팔공티앤씨
+538: maker_포유아이엔씨
+539: maker_퓨전에프앤씨
+540: maker_프리플로우
+541: maker_플랜40
+542: maker_플랜트로닉스
+543: maker_필립스
+544: maker_하이비프리
+545: maker_한샘
+546: maker_한성컴퓨터
+547: maker_헬리녹스
+548: naver_category1_디지털/가전
+549: naver_category1_생활/건강
+550: naver_category1_스포츠/레저
+551: naver_category1_식품
+552: naver_category2_모니터
+553: naver_category2_음료
+554: naver_category2_음향가전
+555: naver_category2_주방용품
+556: naver_category2_주변기기
+557: naver_category2_캠핑
+558: naver_category3_nan
+559: naver_category3_마우스
+560: naver_category3_보관/밀폐용기
+561: naver_category3_블루투스셋
+562: naver_category3_캠핑가구
+563: naver_category3_커피
+564: naver_category3_키보드
+565: naver_category4_nan
+566: naver_category4_무선마우스
+567: naver_category4_무선키보드
+568: naver_category4_물병
+569: naver_category4_블루투스이어폰/이어셋
+570: naver_category4_원두/생두
+571: naver_category4_유선마우스
+572: naver_category4_유선키보드
+573: naver_category4_캠핑의자
+574: naver_category4_프리젠터

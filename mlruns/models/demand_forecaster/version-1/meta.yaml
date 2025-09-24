@@ -1,0 +1,14 @@
+aliases: []
+creation_timestamp: 1758719378211
+current_stage: Production
+description: null
+last_updated_timestamp: 1758719378213
+name: demand_forecaster
+run_id: 7957167124c44459aef25756185f067a
+run_link: null
+source: file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns/496269010794009124/7957167124c44459aef25756185f067a/artifacts/model
+status: READY
+status_message: null
+storage_location: file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns/496269010794009124/7957167124c44459aef25756185f067a/artifacts/model
+user_id: null
+version: 1

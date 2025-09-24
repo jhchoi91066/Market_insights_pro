@@ -80,6 +80,129 @@
             </div>
         </div>
 
+        <!-- AI-Based ML Predictions Section -->
+        {% if report.has_ml_predictions %}
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="card-title">🧠 AI-Based Market Predictions</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Machine Learning powered price forecasting and market insights</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- ML Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Market Opportunity Score -->
+                    <div class="stat-card text-center">
+                        <div class="stat-label">Market Opportunity</div>
+                        <div class="stat-value text-3xl {{ 'text-success-600' if report.prediction_summary.market_opportunity_score >= 70 else ('text-warning-600' if report.prediction_summary.market_opportunity_score >= 40 else 'text-danger-600') }}">
+                            {{ report.prediction_summary.market_opportunity_score }}<span class="text-lg text-gray-500">/100</span>
+                        </div>
+                        <div class="progress mt-2">
+                            <div class="progress-bar {{ 'success' if report.prediction_summary.market_opportunity_score >= 70 else ('warning' if report.prediction_summary.market_opportunity_score >= 40 else 'danger') }}"
+                                 style="width: {{ report.prediction_summary.market_opportunity_score }}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Prediction Accuracy -->
+                    <div class="stat-card text-center">
+                        <div class="stat-label">Model Accuracy</div>
+                        <div class="stat-value text-2xl text-primary-600">{{ report.prediction_summary.prediction_accuracy }}%</div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Based on {{ report.prediction_summary.total_predictions }} predictions</p>
+                    </div>
+
+                    <!-- Average Predicted Price -->
+                    <div class="stat-card text-center">
+                        <div class="stat-label">Predicted Avg. Price</div>
+                        <div class="stat-value text-2xl text-secondary-600">${{ "%.2f"|format(report.prediction_summary.average_predicted_price) }}</div>
+                        <div class="text-xs {{ 'text-success-600' if report.prediction_summary.average_predicted_price < report.prediction_summary.average_actual_price else 'text-danger-600' }}">
+                            {{ 'Below' if report.prediction_summary.average_predicted_price < report.prediction_summary.average_actual_price else 'Above' }} current avg.
+                        </div>
+                    </div>
+
+                    <!-- Market Attractiveness -->
+                    <div class="stat-card text-center">
+                        <div class="stat-label">Market Trend</div>
+                        <div class="stat-value text-lg">
+                            <span class="px-3 py-1 rounded-full text-sm font-medium
+                                {{ 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200' if report.recommendation.market_attractiveness == 'high'
+                                else ('bg-warning-100 text-warning-800 dark:bg-warning-900 dark:text-warning-200' if report.recommendation.market_attractiveness == 'medium'
+                                else 'bg-danger-100 text-danger-800 dark:bg-danger-900 dark:text-danger-200') }}">
+                                {{ report.recommendation.market_attractiveness.title() }}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                            Price trend: {{ report.recommendation.price_trend.title() }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ML Predictions Chart -->
+                <div class="mb-8">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Price Prediction vs Actual Prices</h4>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <canvas id="mlPredictionsChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Individual Product Predictions -->
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Individual Product Predictions</h4>
+                    <div class="grid gap-4">
+                        {% for prediction in report.ml_predictions %}
+                        <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                                <div class="flex-1 mb-3 md:mb-0">
+                                    <h5 class="font-medium text-gray-900 dark:text-white truncate" title="{{ prediction.product_title }}">
+                                        {{ prediction.product_title[:80] }}{% if prediction.product_title|length > 80 %}...{% endif %}
+                                    </h5>
+                                    <div class="flex items-center space-x-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                        <span>Actual: <strong class="text-gray-900 dark:text-white">${{ "%.2f"|format(prediction.actual_price) }}</strong></span>
+                                        <span>Predicted: <strong class="text-purple-600 dark:text-purple-400">${{ "%.2f"|format(prediction.predicted_price) }}</strong></span>
+                                        <span>Accuracy: <strong class="{{ 'text-success-600' if prediction.prediction_accuracy <= 10 else ('text-warning-600' if prediction.prediction_accuracy <= 25 else 'text-danger-600') }}">{{ "%.1f"|format(100 - prediction.prediction_accuracy) }}%</strong></span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs text-gray-500">Confidence Range:</span>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        ${{ "%.2f"|format(prediction.confidence_interval.lower) }} - ${{ "%.2f"|format(prediction.confidence_interval.upper) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- ML Predictions Not Available -->
+        <div class="card">
+            <div class="card-body text-center py-8">
+                <div class="p-3 bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">ML Predictions Unavailable</h3>
+                <p class="text-gray-600 dark:text-gray-400">
+                    {% if report.ml_error %}
+                        ML prediction service encountered an error: {{ report.ml_error }}
+                    {% else %}
+                        Machine learning predictions are currently not available for this analysis.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Top Products Table -->
         <div class="card">
             <div class="card-header flex flex-col sm:flex-row sm:items-center sm:justify-between">

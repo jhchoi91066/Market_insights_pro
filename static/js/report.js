@@ -143,6 +143,87 @@ class ReportPage {
             data: { labels: [], datasets: [{ label: 'Monthly Sales', data: [], backgroundColor: '#3B82F6', borderRadius: 4 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
         });
+
+        // ML Predictions Chart (only if predictions are available)
+        if (this.reportData.has_ml_predictions && this.reportData.ml_predictions) {
+            this.setupMLPredictionsChart();
+        }
+    }
+
+    setupMLPredictionsChart() {
+        const mlChartCtx = document.getElementById('mlPredictionsChart');
+        if (!mlChartCtx) return;
+
+        const predictions = this.reportData.ml_predictions;
+        const isDarkMode = document.documentElement.classList.contains('dark');
+
+        // 차트 데이터 준비
+        const labels = predictions.map(p => p.product_title.substring(0, 20) + '...');
+        const actualPrices = predictions.map(p => p.actual_price);
+        const predictedPrices = predictions.map(p => p.predicted_price);
+
+        this.charts.mlPredictions = new Chart(mlChartCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Actual Price',
+                    data: actualPrices,
+                    backgroundColor: isDarkMode ? 'rgba(75, 192, 192, 0.6)' : 'rgba(34, 197, 94, 0.6)',
+                    borderColor: isDarkMode ? 'rgba(75, 192, 192, 1)' : 'rgba(34, 197, 94, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Predicted Price',
+                    data: predictedPrices,
+                    backgroundColor: isDarkMode ? 'rgba(147, 51, 234, 0.6)' : 'rgba(168, 85, 247, 0.6)',
+                    borderColor: isDarkMode ? 'rgba(147, 51, 234, 1)' : 'rgba(168, 85, 247, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const value = context.parsed.y;
+                                const prediction = predictions[context.dataIndex];
+                                const accuracy = (100 - prediction.prediction_accuracy).toFixed(1);
+
+                                if (label === 'Predicted Price') {
+                                    return `${label}: $${value.toFixed(2)} (Accuracy: ${accuracy}%)`;
+                                }
+                                return `${label}: $${value.toFixed(2)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.8)'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.8)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     updateCharts(products) {

@@ -226,9 +226,13 @@ class SystemOrchestrator:
         try:
             if service_name == "cache":
                 cache_manager = get_cache_manager()
-                await cache_manager.health_check()
-                self.services["cache"] = cache_manager
-                return True
+                health_status = cache_manager.health_check()
+                if health_status.get("status") == "healthy":
+                    self.services["cache"] = cache_manager
+                    return True
+                else:
+                    logger.error(f"❌ Cache health check failed: {health_status.get('error', 'Unknown error')}")
+                    return False
 
             elif service_name == "metrics":
                 metrics_collector = get_metrics_collector()

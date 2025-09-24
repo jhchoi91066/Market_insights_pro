@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns/496269010794009124/7957167124c44459aef25756185f067a/artifacts
+end_time: 1758719378212
+entry_point_name: ''
+experiment_id: '496269010794009124'
+lifecycle_stage: active
+run_id: 7957167124c44459aef25756185f067a
+run_name: charming-jay-708
+run_uuid: 7957167124c44459aef25756185f067a
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758719377114
+status: 3
+tags: []
+user_id: jinhochoi
