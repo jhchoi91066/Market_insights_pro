@@ -14,6 +14,9 @@ class ReportPage {
         this.setupCharts();
         this.setupPriceSlider();
         this.setupSortSelector();
+        this.setupCategoryTabs(); // 카테고리 탭 기능 추가
+        this.setupBrandTabs(); // 브랜드 탭 기능 추가
+        this.setupChannelTabs(); // 채널 전략 탭 기능 추가
         this.updateDashboard(this.allProducts);
     }
 
@@ -68,6 +71,151 @@ class ReportPage {
                 this.currentSort = e.target.value;
                 this.filterDataByPrice(...this.priceRange); // Re-filter and sort
             });
+        }
+    }
+
+    setupCategoryTabs() {
+        // 카테고리 탭 기능 설정
+        const growthTab = document.getElementById('growth-tab');
+        const recommendedTab = document.getElementById('recommended-tab');
+        const growthContent = document.getElementById('growth-categories');
+        const recommendedContent = document.getElementById('recommended-categories');
+
+        if (!growthTab || !recommendedTab || !growthContent || !recommendedContent) {
+            return; // 카테고리 분석 섹션이 없으면 종료
+        }
+
+        // 탭 클릭 이벤트 핸들러
+        growthTab.addEventListener('click', () => {
+            this.switchCategoryTab('growth', growthTab, recommendedTab, growthContent, recommendedContent);
+        });
+
+        recommendedTab.addEventListener('click', () => {
+            this.switchCategoryTab('recommended', growthTab, recommendedTab, growthContent, recommendedContent);
+        });
+    }
+
+    setupBrandTabs() {
+        // 브랜드 탭 기능 설정
+        const shareTab = document.getElementById('brand-share-tab');
+        const gapTab = document.getElementById('brand-gap-tab');
+        const shareContent = document.getElementById('brand-share-content');
+        const gapContent = document.getElementById('brand-gap-content');
+
+        if (!shareTab || !gapTab || !shareContent || !gapContent) {
+            return; // 브랜드 분석 섹션이 없으면 종료
+        }
+
+        // 탭 클릭 이벤트 핸들러
+        shareTab.addEventListener('click', () => {
+            this.switchBrandTab('share', shareTab, gapTab, shareContent, gapContent);
+        });
+
+        gapTab.addEventListener('click', () => {
+            this.switchBrandTab('gap', shareTab, gapTab, shareContent, gapContent);
+        });
+    }
+
+    switchBrandTab(activeTab, shareTab, gapTab, shareContent, gapContent) {
+        // 모든 탭 비활성화
+        shareTab.classList.remove('active', 'border-blue-500', 'text-blue-600');
+        shareTab.classList.add('border-transparent', 'text-gray-500');
+        gapTab.classList.remove('active', 'border-blue-500', 'text-blue-600');
+        gapTab.classList.add('border-transparent', 'text-gray-500');
+
+        // 모든 콘텐츠 숨김
+        shareContent.classList.add('hidden');
+        gapContent.classList.add('hidden');
+
+        // 선택된 탭 활성화
+        if (activeTab === 'share') {
+            shareTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+            shareTab.classList.remove('border-transparent', 'text-gray-500');
+            shareContent.classList.remove('hidden');
+        } else {
+            gapTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+            gapTab.classList.remove('border-transparent', 'text-gray-500');
+            gapContent.classList.remove('hidden');
+        }
+    }
+
+    setupChannelTabs() {
+        // 채널 전략 탭 기능 설정
+        const shareTab = document.getElementById('channel-share-tab');
+        const priceTab = document.getElementById('price-strategy-tab');
+        const opportunityTab = document.getElementById('channel-opportunities-tab');
+        const shareContent = document.getElementById('channel-share-content');
+        const priceContent = document.getElementById('price-strategy-content');
+        const opportunityContent = document.getElementById('channel-opportunities-content');
+
+        if (!shareTab || !priceTab || !opportunityTab || !shareContent || !priceContent || !opportunityContent) {
+            return; // 채널 분석 섹션이 없으면 종료
+        }
+
+        // 탭 클릭 이벤트 핸들러
+        shareTab.addEventListener('click', () => {
+            this.switchChannelTab('share', shareTab, priceTab, opportunityTab, shareContent, priceContent, opportunityContent);
+        });
+
+        priceTab.addEventListener('click', () => {
+            this.switchChannelTab('price', shareTab, priceTab, opportunityTab, shareContent, priceContent, opportunityContent);
+        });
+
+        opportunityTab.addEventListener('click', () => {
+            this.switchChannelTab('opportunity', shareTab, priceTab, opportunityTab, shareContent, priceContent, opportunityContent);
+        });
+    }
+
+    switchChannelTab(activeTab, shareTab, priceTab, opportunityTab, shareContent, priceContent, opportunityContent) {
+        // 모든 탭 비활성화
+        const tabs = [shareTab, priceTab, opportunityTab];
+        const contents = [shareContent, priceContent, opportunityContent];
+
+        tabs.forEach(tab => {
+            tab.classList.remove('active', 'border-blue-500', 'text-blue-600');
+            tab.classList.add('border-transparent', 'text-gray-500');
+        });
+
+        contents.forEach(content => {
+            content.classList.add('hidden');
+        });
+
+        // 선택된 탭과 콘텐츠 활성화
+        if (activeTab === 'share') {
+            shareTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+            shareTab.classList.remove('border-transparent', 'text-gray-500');
+            shareContent.classList.remove('hidden');
+        } else if (activeTab === 'price') {
+            priceTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+            priceTab.classList.remove('border-transparent', 'text-gray-500');
+            priceContent.classList.remove('hidden');
+        } else if (activeTab === 'opportunity') {
+            opportunityTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+            opportunityTab.classList.remove('border-transparent', 'text-gray-500');
+            opportunityContent.classList.remove('hidden');
+        }
+    }
+
+    switchCategoryTab(activeTab, growthTab, recommendedTab, growthContent, recommendedContent) {
+        // 모든 탭 비활성화
+        growthTab.classList.remove('active', 'border-blue-500', 'text-blue-600');
+        growthTab.classList.add('border-transparent', 'text-gray-500');
+        recommendedTab.classList.remove('active', 'border-blue-500', 'text-blue-600');
+        recommendedTab.classList.add('border-transparent', 'text-gray-500');
+
+        // 모든 콘텐츠 숨김
+        growthContent.classList.add('hidden');
+        recommendedContent.classList.add('hidden');
+
+        // 선택된 탭 활성화
+        if (activeTab === 'growth') {
+            growthTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+            growthTab.classList.remove('border-transparent', 'text-gray-500');
+            growthContent.classList.remove('hidden');
+        } else {
+            recommendedTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+            recommendedTab.classList.remove('border-transparent', 'text-gray-500');
+            recommendedContent.classList.remove('hidden');
         }
     }
 
@@ -160,21 +308,21 @@ class ReportPage {
         // 차트 데이터 준비
         const labels = predictions.map(p => p.product_title.substring(0, 20) + '...');
         const actualPrices = predictions.map(p => p.actual_price);
-        const predictedPrices = predictions.map(p => p.predicted_price);
+        const recommendedPrices = predictions.map(p => p.recommended_price);
 
         this.charts.mlPredictions = new Chart(mlChartCtx, {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Actual Price',
+                    label: '현재 시장가격',
                     data: actualPrices,
                     backgroundColor: isDarkMode ? 'rgba(75, 192, 192, 0.6)' : 'rgba(34, 197, 94, 0.6)',
                     borderColor: isDarkMode ? 'rgba(75, 192, 192, 1)' : 'rgba(34, 197, 94, 1)',
                     borderWidth: 1
                 }, {
-                    label: 'Predicted Price',
-                    data: predictedPrices,
+                    label: '🎯 AI 추천가격',
+                    data: recommendedPrices,
                     backgroundColor: isDarkMode ? 'rgba(147, 51, 234, 0.6)' : 'rgba(168, 85, 247, 0.6)',
                     borderColor: isDarkMode ? 'rgba(147, 51, 234, 1)' : 'rgba(168, 85, 247, 1)',
                     borderWidth: 1
@@ -196,8 +344,8 @@ class ReportPage {
                                 const prediction = predictions[context.dataIndex];
                                 const accuracy = (100 - prediction.prediction_accuracy).toFixed(1);
 
-                                if (label === 'Predicted Price') {
-                                    return `${label}: $${value.toFixed(2)} (Accuracy: ${accuracy}%)`;
+                                if (label === '🎯 AI 추천가격') {
+                                    return `${label}: $${value.toFixed(2)} (정확도: ${accuracy}%)`;
                                 }
                                 return `${label}: $${value.toFixed(2)}`;
                             }

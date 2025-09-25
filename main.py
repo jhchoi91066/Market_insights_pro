@@ -139,8 +139,8 @@ async def generate_ml_predictions(products_data: list, keyword: str) -> dict:
                             'confidence_score': recommendation.confidence_score,
                             # 기존 비교 데이터 유지
                             'actual_price': float(product.get('discounted_price', 0)),
-                            'price_accuracy': 100 - (abs(recommendation.recommended_price - float(product.get('discounted_price', 0))) / max(float(product.get('discounted_price', 0)), 1) * 100),
-                            'prediction_accuracy': 100 - (abs(recommendation.recommended_price - float(product.get('discounted_price', 0))) / max(float(product.get('discounted_price', 0)), 1) * 100)  # 호환성을 위한 중복 필드
+                            'price_accuracy': max(0, min(100, 100 - (abs(recommendation.recommended_price - float(product.get('discounted_price', 0))) / max(float(product.get('discounted_price', 0)), 1) * 100))),
+                            'prediction_accuracy': max(0, min(100, 100 - (abs(recommendation.recommended_price - float(product.get('discounted_price', 0))) / max(float(product.get('discounted_price', 0)), 1) * 100)))  # 0-100% 범위 보장
                         })
                         prediction_success = True
                         logger.info(f"✅ 실제 AI 가격 추천 성공: {product.get('product_title')}")
@@ -179,8 +179,8 @@ async def generate_ml_predictions(products_data: list, keyword: str) -> dict:
                             'confidence_score': round(0.7 + random.uniform(0, 0.2), 2),
                             # 기존 비교 데이터 유지
                             'actual_price': actual_price,
-                            'price_accuracy': round(accuracy_score, 1),
-                            'prediction_accuracy': round(accuracy_score, 1)  # 호환성을 위한 중복 필드
+                            'price_accuracy': max(0, min(100, round(accuracy_score, 1))),
+                            'prediction_accuracy': max(0, min(100, round(accuracy_score, 1)))  # 0-100% 범위 보장
                         })
                         logger.info(f"📊 더미 가격 추천 생성: {product.get('product_title')}")
 
@@ -194,9 +194,28 @@ async def generate_ml_predictions(products_data: list, keyword: str) -> dict:
             avg_actual_price = sum(p['actual_price'] for p in predictions) / len(predictions)
             avg_accuracy = sum(p['prediction_accuracy'] for p in predictions) / len(predictions)
 
-            # 시장 기회 점수 계산 (0-100점)
-            market_opportunity_score = max(0, min(100,
-                50 + (avg_recommended_price - avg_actual_price) / avg_actual_price * 100
+            # 시장 기회 점수 계산 (0-100점) - 개선된 로직
+            price_diff_ratio = (avg_recommended_price - avg_actual_price) / avg_actual_price if avg_actual_price > 0 else 0
+
+            # 다양한 요소를 고려한 시장 기회 점수
+            base_score = 50  # 기본 점수
+
+            # 1. 가격 기회 (±30점)
+            if price_diff_ratio > 0.2:  # 추천가가 20% 이상 높으면 프리미엄 기회
+                price_opportunity = min(30, price_diff_ratio * 50)
+            elif price_diff_ratio < -0.1:  # 추천가가 10% 이상 낮으면 경쟁력 기회
+                price_opportunity = min(20, abs(price_diff_ratio) * 100)
+            else:  # 적정 가격대
+                price_opportunity = 10
+
+            # 2. 추천 정확도 (±15점)
+            accuracy_bonus = (avg_accuracy - 70) / 30 * 15 if avg_accuracy > 70 else 0
+
+            # 3. 예측 개수 (±5점) - 데이터가 많을수록 신뢰도 높음
+            data_reliability = min(5, len(predictions) / 5)
+
+            market_opportunity_score = max(10, min(90,
+                base_score + price_opportunity + accuracy_bonus + data_reliability
             ))
 
             return {
@@ -581,6 +600,72 @@ async def get_report(request: Request, keyword: str):
                             product['scraped_at'] = product['scraped_at'].isoformat()
 
             print(f"✅ 네이버 기반 종합 분석 완료!")
+
+            # 트렌딩 기회 분석 추가 (Phase 1.1)
+            print(f"🎯 '{keyword}' 트렌딩 기회 분석 시작...")
+            try:
+                trending_opportunities = await analyzer.analyze_trending_opportunities(keyword)
+                report_data['trending_opportunities'] = trending_opportunities
+                print(f"✅ 트렌딩 기회 분석 완료 (발견된 기회: {len(trending_opportunities.get('top_opportunities', []))}개)")
+            except Exception as trend_e:
+                logger.error(f"트렌딩 기회 분석 실패: {trend_e}")
+                report_data['trending_opportunities'] = {
+                    "base_keyword": keyword,
+                    "error": str(trend_e),
+                    "top_opportunities": [],
+                    "analysis_summary": {}
+                }
+                print(f"⚠️ 트렌딩 기회 분석 실패: {trend_e}")
+
+            # 카테고리 성장률 분석 추가 (Phase 1.2)
+            print(f"📊 '{keyword}' 카테고리 성장률 분석 시작...")
+            try:
+                category_growth_analysis = await analyzer.analyze_category_growth_rates(days=30)
+                report_data['category_growth_analysis'] = category_growth_analysis
+                print(f"✅ 카테고리 성장률 분석 완료 (분석된 카테고리: {len(category_growth_analysis.get('top_growth_categories', []))}개)")
+            except Exception as category_e:
+                logger.error(f"카테고리 성장률 분석 실패: {category_e}")
+                report_data['category_growth_analysis'] = {
+                    "error": str(category_e),
+                    "top_growth_categories": [],
+                    "recommended_entry_categories": [],
+                    "analysis_summary": {}
+                }
+                print(f"⚠️ 카테고리 성장률 분석 실패: {category_e}")
+
+            # 브랜드 갭 분석 추가 (Phase 2.1)
+            print(f"🏷️ '{keyword}' 브랜드 갭 분석 시작...")
+            try:
+                brand_gap_analysis = await analyzer.analyze_brand_gap_opportunities(keyword, max_products=80)
+                report_data['brand_gap_analysis'] = brand_gap_analysis
+                print(f"✅ 브랜드 갭 분석 완료 (브랜드 수: {brand_gap_analysis.get('unique_brands_found', 0)}개, 기회: {len(brand_gap_analysis.get('gap_opportunities', []))}개)")
+            except Exception as brand_e:
+                logger.error(f"브랜드 갭 분석 실패: {brand_e}")
+                report_data['brand_gap_analysis'] = {
+                    "keyword": keyword,
+                    "error": str(brand_e),
+                    "brand_market_share": [],
+                    "gap_opportunities": [],
+                    "analysis_summary": {}
+                }
+                print(f"⚠️ 브랜드 갭 분석 실패: {brand_e}")
+
+            # 채널 전략 분석 수행
+            print(f"🏪 '{keyword}' 채널 전략 분석 시작...")
+            try:
+                channel_strategy_analysis = await analyzer.analyze_channel_strategy_opportunities(keyword, max_products=80)
+                report_data['channel_strategy_analysis'] = channel_strategy_analysis
+                print(f"✅ 채널 전략 분석 완료 (분석 채널 수: {channel_strategy_analysis.get('channel_analysis', {}).get('total_channels', 0)}개)")
+            except Exception as channel_e:
+                logger.error(f"채널 전략 분석 실패: {channel_e}")
+                report_data['channel_strategy_analysis'] = {
+                    "keyword": keyword,
+                    "error": str(channel_e),
+                    "channel_analysis": {"channels": [], "total_channels": 0},
+                    "market_opportunities": [],
+                    "analysis_summary": {}
+                }
+                print(f"⚠️ 채널 전략 분석 실패: {channel_e}")
 
             # ML 예측 결과 통합
             print(f"🧠 '{keyword}' ML 예측 분석 시작...")
@@ -2859,6 +2944,275 @@ async def run_performance_benchmark():
     except Exception as e:
         logger.error(f"❌ 성능 벤치마크 실패: {e}")
         raise HTTPException(status_code=500, detail=f"성능 벤치마크 중 오류가 발생했습니다: {str(e)}")
+
+
+# =========================
+# 🔥 Phase 3: 실시간 모니터링 시스템 API
+# =========================
+
+@app.post("/api/monitoring/trend-changes")
+async def analyze_trend_changes_endpoint(request: Request):
+    """
+    📈 트렌드 급변 감지 분석
+
+    지정된 키워드들의 트렌드 변화를 실시간으로 모니터링하고 급변 키워드를 감지합니다.
+    """
+    try:
+        data = await request.json()
+        keywords = data.get('keywords', [])
+        monitoring_period = data.get('monitoring_period', 7)
+
+        if not keywords:
+            raise HTTPException(status_code=400, detail="키워드 리스트가 필요합니다")
+
+        print(f"🔍 트렌드 급변 감지 시작: {len(keywords)}개 키워드, {monitoring_period}일 주기")
+
+        analyzer = get_analyzer()
+        trend_analysis = await analyzer.analyze_trend_changes(keywords, monitoring_period)
+
+        print(f"✅ 트렌드 분석 완료: {trend_analysis['significant_changes_count']}개 유의미한 변화 감지")
+
+        return {
+            "status": "success",
+            "message": f"{len(keywords)}개 키워드의 트렌드 변화 분석이 완료되었습니다",
+            "analysis": trend_analysis,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 트렌드 변화 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"트렌드 변화 분석 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.post("/api/monitoring/competitor-monitor")
+async def monitor_competitors_endpoint(request: Request):
+    """
+    🏢 경쟁사 동향 모니터링
+
+    특정 키워드의 경쟁사 동향을 모니터링하고 가격 변화, 신규 진입자, 점유율 변화를 추적합니다.
+    """
+    try:
+        data = await request.json()
+        base_keyword = data.get('keyword', '')
+        past_products = data.get('past_products', None)  # 이전 상품 데이터 (선택사항)
+
+        if not base_keyword:
+            raise HTTPException(status_code=400, detail="모니터링할 키워드가 필요합니다")
+
+        print(f"🏢 경쟁사 모니터링 시작: {base_keyword}")
+
+        analyzer = get_analyzer()
+        competitor_analysis = await analyzer.monitor_competitors(base_keyword, past_products)
+
+        print(f"✅ 경쟁사 모니터링 완료: {competitor_analysis['total_competitors']}개 경쟁사, {len(competitor_analysis['alerts'])}개 알림")
+
+        return {
+            "status": "success",
+            "message": f"'{base_keyword}' 키워드의 경쟁사 모니터링이 완료되었습니다",
+            "analysis": competitor_analysis,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 경쟁사 모니터링 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"경쟁사 모니터링 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/api/monitoring/alerts/{keyword}")
+async def get_monitoring_alerts(keyword: str):
+    """
+    🚨 모니터링 알림 조회
+
+    특정 키워드에 대한 최신 모니터링 알림을 조회합니다.
+    """
+    try:
+        print(f"🚨 모니터링 알림 조회: {keyword}")
+
+        analyzer = get_analyzer()
+
+        # 트렌드 변화 분석 (단일 키워드)
+        trend_analysis = await analyzer.analyze_trend_changes([keyword], monitoring_period=7)
+
+        # 경쟁사 모니터링
+        competitor_analysis = await analyzer.monitor_competitors(keyword)
+
+        # 알림 생성
+        alerts = []
+
+        # 트렌드 급변 알림
+        for trend in trend_analysis.get('rising_trends', []) + trend_analysis.get('falling_trends', []):
+            if trend['severity'] in ['critical', 'high']:
+                alerts.append({
+                    'type': 'trend_change',
+                    'severity': trend['severity'],
+                    'keyword': trend['keyword'],
+                    'message': f"{trend['keyword']} 키워드가 {trend['change_type']} 중입니다 ({trend['change_percentage']:+.1f}%)",
+                    'details': trend,
+                    'timestamp': trend['analysis_timestamp']
+                })
+
+        # 경쟁사 알림 추가
+        alerts.extend(competitor_analysis.get('alerts', []))
+
+        # 중요도순 정렬
+        severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
+        alerts.sort(key=lambda x: severity_order.get(x.get('severity', 'low'), 3))
+
+        print(f"✅ 알림 조회 완료: {len(alerts)}개 알림 발견")
+
+        return {
+            "status": "success",
+            "keyword": keyword,
+            "alerts": alerts[:20],  # 상위 20개 알림
+            "alert_summary": {
+                "total_alerts": len(alerts),
+                "critical_alerts": len([a for a in alerts if a.get('severity') == 'critical']),
+                "high_alerts": len([a for a in alerts if a.get('severity') == 'high']),
+                "trend_alerts": len([a for a in alerts if a.get('type') == 'trend_change']),
+                "competitor_alerts": len([a for a in alerts if a.get('type') != 'trend_change'])
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 모니터링 알림 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"모니터링 알림 조회 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/api/monitoring/dashboard/{keyword}")
+async def get_monitoring_dashboard(keyword: str):
+    """
+    📊 모니터링 대시보드 데이터
+
+    특정 키워드에 대한 종합 모니터링 대시보드 데이터를 제공합니다.
+    """
+    try:
+        print(f"📊 모니터링 대시보드 데이터 수집: {keyword}")
+
+        analyzer = get_analyzer()
+
+        # 동시 실행으로 성능 최적화
+        import asyncio
+
+        # 병렬 분석 실행
+        trend_task = asyncio.create_task(analyzer.analyze_trend_changes([keyword], monitoring_period=7))
+        competitor_task = asyncio.create_task(analyzer.monitor_competitors(keyword))
+
+        # 결과 대기
+        trend_analysis, competitor_analysis = await asyncio.gather(trend_task, competitor_task)
+
+        # 대시보드 메트릭 생성
+        dashboard_metrics = {
+            'keyword': keyword,
+            'trend_status': {
+                'current_trend': trend_analysis['trend_changes'][0] if trend_analysis['trend_changes'] else None,
+                'volatility_index': trend_analysis['analysis_summary']['volatility_index'],
+                'significant_changes': trend_analysis['significant_changes_count']
+            },
+            'competitor_status': {
+                'total_competitors': competitor_analysis['total_competitors'],
+                'new_entrants': competitor_analysis['analysis_summary']['new_entrants_count'],
+                'price_changes': competitor_analysis['analysis_summary']['significant_price_changes'],
+                'market_volatility': competitor_analysis['analysis_summary']['market_volatility'],
+                'competition_trend': competitor_analysis['analysis_summary']['competition_trend']
+            },
+            'alerts_summary': {
+                'total_alerts': len(competitor_analysis['alerts']),
+                'critical_alerts': len([a for a in competitor_analysis['alerts'] if a.get('severity') == 'high']),
+                'recent_alerts': competitor_analysis['alerts'][:5]
+            },
+            'market_health': {
+                'status': 'stable',  # 기본값
+                'risk_level': 'low'   # 기본값
+            }
+        }
+
+        # 시장 건강도 평가
+        if trend_analysis['analysis_summary']['volatility_index'] > 30:
+            dashboard_metrics['market_health']['status'] = 'volatile'
+            dashboard_metrics['market_health']['risk_level'] = 'high'
+        elif competitor_analysis['analysis_summary']['new_entrants_count'] > 10:
+            dashboard_metrics['market_health']['status'] = 'active'
+            dashboard_metrics['market_health']['risk_level'] = 'medium'
+
+        print(f"✅ 대시보드 데이터 준비 완료: 변동성 지수 {dashboard_metrics['trend_status']['volatility_index']}")
+
+        return {
+            "status": "success",
+            "message": f"'{keyword}' 모니터링 대시보드 데이터가 준비되었습니다",
+            "dashboard": dashboard_metrics,
+            "detailed_analysis": {
+                "trend_analysis": trend_analysis,
+                "competitor_analysis": competitor_analysis
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 모니터링 대시보드 데이터 수집 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"모니터링 대시보드 데이터 수집 중 오류가 발생했습니다: {str(e)}")
+
+
+@app.get("/monitoring")
+async def monitoring_page(request: Request):
+    """
+    🔥 실시간 모니터링 대시보드 페이지
+
+    실시간 트렌드 변화와 경쟁사 동향을 모니터링할 수 있는 대시보드 페이지를 제공합니다.
+    """
+    return templates.TemplateResponse("monitoring.html", {"request": request})
+
+
+@app.post("/api/monitoring/watchlist")
+async def manage_monitoring_watchlist(request: Request):
+    """
+    📝 모니터링 워치리스트 관리
+
+    모니터링할 키워드 목록을 추가, 수정, 삭제합니다.
+    """
+    try:
+        data = await request.json()
+        action = data.get('action', 'add')  # add, remove, list
+        keywords = data.get('keywords', [])
+
+        # 간단한 인메모리 워치리스트 (실제 구현에서는 DB 사용)
+        if not hasattr(app.state, 'watchlist'):
+            app.state.watchlist = set()
+
+        if action == 'add':
+            app.state.watchlist.update(keywords)
+            message = f"{len(keywords)}개 키워드가 워치리스트에 추가되었습니다"
+
+        elif action == 'remove':
+            app.state.watchlist.difference_update(keywords)
+            message = f"{len(keywords)}개 키워드가 워치리스트에서 제거되었습니다"
+
+        elif action == 'list':
+            message = f"현재 워치리스트에 {len(app.state.watchlist)}개 키워드가 등록되어 있습니다"
+
+        else:
+            raise HTTPException(status_code=400, detail="지원되지 않는 액션입니다")
+
+        print(f"📝 워치리스트 관리: {action} - {len(keywords)}개 키워드")
+
+        return {
+            "status": "success",
+            "message": message,
+            "action": action,
+            "watchlist": list(app.state.watchlist),
+            "watchlist_count": len(app.state.watchlist),
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 워치리스트 관리 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"워치리스트 관리 중 오류가 발생했습니다: {str(e)}")
 
 
 if __name__ == "__main__":

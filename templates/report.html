@@ -80,6 +80,537 @@
             </div>
         </div>
 
+        <!-- 🎯 트렌딩 기회 섹션 -->
+        {% if report.trending_opportunities and report.trending_opportunities.top_opportunities %}
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="card-title">🎯 트렌딩 기회 분석</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ report.trending_opportunities.base_keyword }}와 관련된 높은 성장률과 낮은 경쟁도를 가진 기회 키워드</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 트렌딩 기회 요약 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🎯 고기회 키워드</div>
+                        <div class="stat-value text-3xl text-success-600">{{ report.trending_opportunities.analysis_summary.high_opportunity_count }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">75점 이상</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">📈 상승 트렌드</div>
+                        <div class="stat-value text-3xl text-blue-600">{{ report.trending_opportunities.analysis_summary.trending_up_count }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">성장 중인 키워드</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">💡 평균 기회 점수</div>
+                        <div class="stat-value text-2xl text-purple-600">{{ "%.1f"|format(report.trending_opportunities.analysis_summary.avg_opportunity_score) }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">총 {{ report.trending_opportunities.total_analyzed }}개 분석</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🏆 저경쟁 시장</div>
+                        <div class="stat-value text-3xl text-orange-600">{{ report.trending_opportunities.analysis_summary.low_competition_count }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">진입 용이</div>
+                    </div>
+                </div>
+
+                <!-- 상위 트렌딩 기회 리스트 -->
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🚀 상위 트렌딩 기회 키워드</h4>
+                    <div class="space-y-4">
+                        {% for opportunity in report.trending_opportunities.top_opportunities %}
+                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-4 border-l-4
+                                    {{ 'border-green-500' if opportunity.opportunity_score >= 75 else ('border-yellow-500' if opportunity.opportunity_score >= 50 else 'border-red-500') }}">
+                            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-lg font-semibold text-gray-900 dark:text-white mr-3">{{ opportunity.keyword }}</span>
+                                        <span class="text-sm">{{ opportunity.market_gap_indicator }}</span>
+                                        <span class="ml-2 px-2 py-1 rounded-full text-xs font-medium
+                                                     {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if opportunity.trend_direction == 'rising'
+                                                     else ('bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' if opportunity.trend_direction == 'stable'
+                                                     else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
+                                            {{ opportunity.trend_direction.title() }}
+                                            {% if opportunity.trend_change_percent != 0 %}
+                                                ({{ "+%.1f" if opportunity.trend_change_percent > 0 else "%.1f" }}%)
+                                            {% endif %}
+                                        </span>
+                                    </div>
+
+                                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                        {{ opportunity.recommendation_reason }}
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">경쟁도:</span>
+                                            <span class="ml-1 px-2 py-1 rounded text-xs font-medium
+                                                         {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if opportunity.competition_level == 'low'
+                                                         else ('bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' if opportunity.competition_level == 'medium'
+                                                         else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
+                                                {{ opportunity.competition_level.title() }} ({{ opportunity.competitor_count }}개)
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">평균가격:</span>
+                                            <span class="ml-1">${{ "{:,.0f}"|format(opportunity.avg_price) if opportunity.avg_price > 0 else 'N/A' }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">트렌드점수:</span>
+                                            <span class="ml-1 font-medium text-blue-600 dark:text-blue-400">{{ "%.1f"|format(opportunity.trend_score) }}/100</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 lg:mt-0 lg:ml-6 flex-shrink-0">
+                                    <div class="text-center">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">기회 점수</div>
+                                        <div class="text-2xl font-bold
+                                                    {{ 'text-green-600' if opportunity.opportunity_score >= 75 else ('text-yellow-600' if opportunity.opportunity_score >= 50 else 'text-red-600') }}">
+                                            {{ "%.1f"|format(opportunity.opportunity_score) }}
+                                        </div>
+                                        <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                            <div class="h-2 rounded-full transition-all duration-500
+                                                        {{ 'bg-green-500' if opportunity.opportunity_score >= 75 else ('bg-yellow-500' if opportunity.opportunity_score >= 50 else 'bg-red-500') }}"
+                                                 style="width: {{ opportunity.opportunity_score }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 📊 카테고리 성장률 분석 섹션 -->
+        {% if report.category_growth_analysis and report.category_growth_analysis.top_growth_categories %}
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="card-title">📊 카테고리 성장률 분석</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">주요 카테고리별 성장률과 시장 진입 추천도 분석</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 카테고리 분석 요약 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🚀 고성장 카테고리</div>
+                        <div class="stat-value text-3xl text-success-600">{{ report.category_growth_analysis.analysis_summary.high_growth_count }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">성장률 15% 이상</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">📈 상승 트렌드</div>
+                        <div class="stat-value text-3xl text-blue-600">{{ report.category_growth_analysis.analysis_summary.rising_trend_count }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">성장 중인 카테고리</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">💡 평균 성장률</div>
+                        <div class="stat-value text-2xl text-green-600">{{ "%.1f"|format(report.category_growth_analysis.analysis_summary.avg_growth_rate) }}%</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ report.category_growth_analysis.total_categories_analyzed }}개 분석</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🎯 고기회 시장</div>
+                        <div class="stat-value text-3xl text-orange-600">{{ report.category_growth_analysis.analysis_summary.high_opportunity_count }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">진입 추천도 75점+</div>
+                    </div>
+                </div>
+
+                <!-- 탭 메뉴 -->
+                <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+                    <nav class="-mb-px flex space-x-8">
+                        <button id="growth-tab" class="category-tab active py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600 dark:text-blue-400">
+                            🚀 고성장 카테고리
+                        </button>
+                        <button id="recommended-tab" class="category-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300">
+                            💡 진입 추천 카테고리
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- 고성장 카테고리 리스트 -->
+                <div id="growth-categories" class="category-content">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🚀 성장률 기준 상위 카테고리</h4>
+                    <div class="space-y-4">
+                        {% for category in report.category_growth_analysis.top_growth_categories[:10] %}
+                        <div class="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4 border-l-4
+                                    {{ 'border-green-500' if category.growth_rate >= 20 else ('border-blue-500' if category.growth_rate >= 10 else 'border-yellow-500') }}">
+                            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-lg font-semibold text-gray-900 dark:text-white mr-3">{{ category.category }}</span>
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium
+                                                     {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if category.growth_rate >= 20
+                                                     else ('bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' if category.growth_rate >= 10
+                                                     else 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200') }}">
+                                            {{ category.growth_momentum }}
+                                        </span>
+                                        <span class="ml-2 px-2 py-1 rounded-full text-xs font-medium
+                                                     {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if category.growth_direction == 'rising'
+                                                     else ('bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' if category.growth_direction == 'stable'
+                                                     else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
+                                            {{ category.growth_direction.title() }}
+                                        </span>
+                                    </div>
+
+                                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                        {{ category.recommendation_reason }}
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm">
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">시장규모:</span>
+                                            <span class="ml-1 px-2 py-1 rounded text-xs font-medium
+                                                         {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if category.market_size_score >= 80
+                                                         else ('bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' if category.market_size_score >= 50
+                                                         else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
+                                                {{ "%.0f"|format(category.market_size_score) }}점
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">경쟁밀도:</span>
+                                            <span class="ml-1 px-2 py-1 rounded text-xs font-medium
+                                                         {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if category.competition_density == 'low'
+                                                         else ('bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' if category.competition_density == 'medium'
+                                                         else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
+                                                {{ category.competition_density.title() }} ({{ category.market_indicators.product_count }}개)
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">평균가격:</span>
+                                            <span class="ml-1">₩{{ "{:,}"|format(category.market_indicators.avg_price) if category.market_indicators.avg_price > 0 else 'N/A' }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">진입난이도:</span>
+                                            <span class="ml-1 font-medium
+                                                         {{ 'text-green-600 dark:text-green-400' if category.entry_difficulty == '쉬움'
+                                                         else ('text-yellow-600 dark:text-yellow-400' if category.entry_difficulty == '보통'
+                                                         else 'text-red-600 dark:text-red-400') }}">
+                                                {{ category.entry_difficulty }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 lg:mt-0 lg:ml-6 flex-shrink-0 text-center">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">성장률</div>
+                                    <div class="text-2xl font-bold
+                                                {{ 'text-green-600' if category.growth_rate >= 20 else ('text-blue-600' if category.growth_rate >= 10 else 'text-yellow-600') }}">
+                                        {{ "+%.1f"|format(category.growth_rate) if category.growth_rate > 0 else "%.1f"|format(category.growth_rate) }}%
+                                    </div>
+                                    <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                        <div class="h-2 rounded-full transition-all duration-500
+                                                    {{ 'bg-green-500' if category.growth_rate >= 20 else ('bg-blue-500' if category.growth_rate >= 10 else 'bg-yellow-500') }}"
+                                             style="width: {{ min(100, max(5, (category.growth_rate + 10) * 2)) }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 진입 추천 카테고리 리스트 -->
+                <div id="recommended-categories" class="category-content hidden">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💡 진입 추천도 기준 상위 카테고리</h4>
+                    <div class="space-y-4">
+                        {% for category in report.category_growth_analysis.recommended_entry_categories[:10] %}
+                        <div class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4 border-l-4
+                                    {{ 'border-green-500' if category.entry_recommendation_score >= 80 else ('border-blue-500' if category.entry_recommendation_score >= 60 else 'border-yellow-500') }}">
+                            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-lg font-semibold text-gray-900 dark:text-white mr-3">{{ category.category }}</span>
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium
+                                                     {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if category.entry_difficulty == '쉬움'
+                                                     else ('bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' if category.entry_difficulty == '보통'
+                                                     else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
+                                            진입 {{ category.entry_difficulty }}
+                                        </span>
+                                    </div>
+
+                                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                        {{ category.recommendation_reason }}
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">성장률:</span>
+                                            <span class="ml-1 font-medium text-green-600 dark:text-green-400">{{ "+%.1f"|format(category.growth_rate) if category.growth_rate > 0 else "%.1f"|format(category.growth_rate) }}%</span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">트렌드:</span>
+                                            <span class="ml-1 px-2 py-1 rounded text-xs font-medium
+                                                         {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if category.growth_direction == 'rising'
+                                                         else ('bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' if category.growth_direction == 'stable'
+                                                         else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
+                                                {{ category.growth_direction.title() }}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">시장규모:</span>
+                                            <span class="ml-1">{{ "%.0f"|format(category.market_size_score) }}점</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 lg:mt-0 lg:ml-6 flex-shrink-0 text-center">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">추천도</div>
+                                    <div class="text-2xl font-bold
+                                                {{ 'text-green-600' if category.entry_recommendation_score >= 80 else ('text-blue-600' if category.entry_recommendation_score >= 60 else 'text-yellow-600') }}">
+                                        {{ "%.0f"|format(category.entry_recommendation_score) }}
+                                    </div>
+                                    <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                        <div class="h-2 rounded-full transition-all duration-500
+                                                    {{ 'bg-green-500' if category.entry_recommendation_score >= 80 else ('bg-blue-500' if category.entry_recommendation_score >= 60 else 'bg-yellow-500') }}"
+                                             style="width: {{ category.entry_recommendation_score }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 🏷️ 브랜드 갭 분석 섹션 -->
+        {% if report.brand_gap_analysis and report.brand_gap_analysis.brand_market_share %}
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center">
+                    <div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="card-title">🏷️ 브랜드 갭 분석</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">브랜드 시장 점유율 분석과 신규 진입 기회 탐지</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 브랜드 분석 요약 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🏷️ 발견된 브랜드</div>
+                        <div class="stat-value text-3xl text-orange-600">{{ report.brand_gap_analysis.unique_brands_found }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ report.brand_gap_analysis.total_products_analyzed }}개 상품 분석</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">📊 시장 집중도</div>
+                        <div class="stat-value text-2xl text-blue-600">{{ report.brand_gap_analysis.analysis_summary.market_concentration }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">상위3개 {{ "%.1f"|format(report.brand_gap_analysis.analysis_summary.top_3_market_share) }}%</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">💡 브랜드 다양성</div>
+                        <div class="stat-value text-2xl text-green-600">{{ report.brand_gap_analysis.analysis_summary.brand_diversity_score }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">브랜드 선택지</div>
+                    </div>
+
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🎯 진입 기회</div>
+                        <div class="stat-value text-3xl text-purple-600">{{ report.brand_gap_analysis.analysis_summary.gap_opportunity_count }}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">높은 기회 영역</div>
+                    </div>
+                </div>
+
+                <!-- 브랜드 경쟁 상황 -->
+                {% if report.brand_gap_analysis.brand_competition_analysis %}
+                <div class="mb-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">🏁 브랜드 경쟁 현황</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="text-center">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">경쟁 강도</div>
+                            <div class="text-lg font-bold
+                                        {{ 'text-red-600' if report.brand_gap_analysis.brand_competition_analysis.intensity == '높은 경쟁'
+                                        else ('text-yellow-600' if report.brand_gap_analysis.brand_competition_analysis.intensity == '보통 경쟁'
+                                        else 'text-green-600') }}">
+                                {{ report.brand_gap_analysis.brand_competition_analysis.intensity }}
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ report.brand_gap_analysis.brand_competition_analysis.competition_level }}</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">HHI 지수</div>
+                            <div class="text-lg font-bold text-blue-600">{{ "%.0f"|format(report.brand_gap_analysis.brand_competition_analysis.hhi_score) }}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ report.brand_gap_analysis.brand_competition_analysis.market_concentration }} 집중</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">진입 장벽</div>
+                            <div class="text-lg font-bold
+                                        {{ 'text-red-600' if report.brand_gap_analysis.brand_competition_analysis.entry_barrier == '높음'
+                                        else ('text-yellow-600' if report.brand_gap_analysis.brand_competition_analysis.entry_barrier == '보통'
+                                        else 'text-green-600') }}">
+                                {{ report.brand_gap_analysis.brand_competition_analysis.entry_barrier }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 탭 메뉴 -->
+                <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+                    <nav class="-mb-px flex space-x-8">
+                        <button id="market-share-tab" class="brand-tab active py-2 px-1 border-b-2 border-orange-500 font-medium text-sm text-orange-600 dark:text-orange-400">
+                            📊 브랜드 시장 점유율
+                        </button>
+                        <button id="brand-gaps-tab" class="brand-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300">
+                            🎯 브랜드 갭 기회
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- 브랜드 시장 점유율 -->
+                <div id="market-share-content" class="brand-content">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 브랜드별 시장 점유율 순위</h4>
+                    <div class="space-y-4">
+                        {% for brand in report.brand_gap_analysis.brand_market_share[:10] %}
+                        <div class="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg p-4 border-l-4
+                                    {{ 'border-orange-500' if brand.market_share >= 20 else ('border-yellow-500' if brand.market_share >= 10 else 'border-gray-400') }}">
+                            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-lg font-semibold text-gray-900 dark:text-white mr-3">{{ brand.brand }}</span>
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                            #{{ loop.index }} 순위
+                                        </span>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm mb-3">
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">시장점유율:</span>
+                                            <span class="ml-1 font-bold text-orange-600 dark:text-orange-400">{{ "%.1f"|format(brand.market_share) }}%</span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">상품수:</span>
+                                            <span class="ml-1">{{ brand.product_count }}개</span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">평균가격:</span>
+                                            <span class="ml-1">₩{{ "{:,}"|format(brand.avg_price) }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">브랜드강도:</span>
+                                            <span class="ml-1 font-medium
+                                                         {{ 'text-green-600 dark:text-green-400' if brand.brand_strength >= 80
+                                                         else ('text-yellow-600 dark:text-yellow-400' if brand.brand_strength >= 60
+                                                         else 'text-red-600 dark:text-red-400') }}">
+                                                {{ "%.1f"|format(brand.brand_strength) }}점
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 가격 범위 -->
+                                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="font-medium">가격대:</span>
+                                        ₩{{ "{:,}"|format(brand.price_range.min) }} - ₩{{ "{:,}"|format(brand.price_range.max) }}
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 lg:mt-0 lg:ml-6 flex-shrink-0 text-center">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">점유율</div>
+                                    <div class="text-2xl font-bold text-orange-600">{{ "%.1f"|format(brand.market_share) }}%</div>
+                                    <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-1">
+                                        <div class="h-3 rounded-full transition-all duration-500 bg-orange-500"
+                                             style="width: {{ min(100, max(5, brand.market_share * 2)) }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 브랜드 갭 기회 -->
+                <div id="brand-gaps-content" class="brand-content hidden">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 브랜드 진입 기회 영역</h4>
+                    {% if report.brand_gap_analysis.gap_opportunities %}
+                    <div class="space-y-4">
+                        {% for gap in report.brand_gap_analysis.gap_opportunities %}
+                        <div class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4 border-l-4
+                                    {{ 'border-green-500' if gap.opportunity_score >= 80 else ('border-yellow-500' if gap.opportunity_score >= 70 else 'border-blue-500') }}">
+                            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-lg font-semibold text-gray-900 dark:text-white mr-3">{{ gap.gap_type }}</span>
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium
+                                                     {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if gap.opportunity_score >= 80
+                                                     else ('bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' if gap.opportunity_score >= 70
+                                                     else 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200') }}">
+                                            {{ gap.target_segment }}
+                                        </span>
+                                    </div>
+
+                                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                        {{ gap.description }}
+                                    </div>
+
+                                    <div class="text-sm bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded p-3 mb-2">
+                                        <div class="text-yellow-800 dark:text-yellow-200 font-medium">💡 추천 전략</div>
+                                        <div class="text-yellow-700 dark:text-yellow-300 mt-1">{{ gap.recommendation }}</div>
+                                    </div>
+
+                                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="font-medium">예상 목표 점유율:</span>
+                                        <span class="font-bold text-green-600 dark:text-green-400">{{ gap.expected_share }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 lg:mt-0 lg:ml-6 flex-shrink-0 text-center">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">기회 점수</div>
+                                    <div class="text-2xl font-bold
+                                                {{ 'text-green-600' if gap.opportunity_score >= 80 else ('text-yellow-600' if gap.opportunity_score >= 70 else 'text-blue-600') }}">
+                                        {{ "%.0f"|format(gap.opportunity_score) }}
+                                    </div>
+                                    <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-1">
+                                        <div class="h-3 rounded-full transition-all duration-500
+                                                    {{ 'bg-green-500' if gap.opportunity_score >= 80 else ('bg-yellow-500' if gap.opportunity_score >= 70 else 'bg-blue-500') }}"
+                                             style="width: {{ gap.opportunity_score }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-4">🔍</div>
+                        <p>현재 시장에서 뚜렷한 브랜드 갭 기회가 발견되지 않았습니다.</p>
+                        <p class="text-sm mt-2">기존 브랜드들이 시장을 잘 커버하고 있는 상황입니다.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- 🎯 AI 최적 가격 추천 섹션 -->
         {% if report.has_ml_predictions %}
         <div class="card">
@@ -144,9 +675,10 @@
                     </div>
                 </div>
 
-                <!-- ML Predictions Chart -->
+                <!-- ML Recommendations Chart -->
                 <div class="mb-8">
-                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Price Prediction vs Actual Prices</h4>
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 추천 가격 vs 현재 시장가격 비교</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">AI가 분석한 최적 판매가격과 현재 시장가격의 비교를 통해 가격 전략을 확인하세요</p>
                     <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                         <canvas id="mlPredictionsChart" width="400" height="200"></canvas>
                     </div>
@@ -178,7 +710,8 @@
                                     </div>
                                     <div class="text-center p-2 bg-blue-100 dark:bg-blue-700 rounded">
                                         <div class="text-xs text-blue-600 dark:text-blue-400">💰 예상 수익률</div>
-                                        <div class="text-lg font-bold text-blue-700 dark:text-blue-300">{{ "%.1f"|format(prediction.get('confidence_score', 0.8) * 100) }}%</div>
+                                        {% set profit_margin = prediction.get('profitability_analysis', {}).get('best_scenario', {}).get('profit_margin', prediction.get('profitability_analysis', {}).get('profit_margin', 15.0)) %}
+                                        <div class="text-lg font-bold text-blue-700 dark:text-blue-300">{{ "%.1f"|format(profit_margin * 100 if profit_margin < 1 else profit_margin) }}%</div>
                                     </div>
                                 </div>
 
@@ -226,6 +759,276 @@
                         현재 이 분석에 대한 AI 가격 추천을 사용할 수 없습니다.
                     {% endif %}
                 </p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 🏪 채널 전략 분석 섹션 -->
+        {% if report.channel_strategy_analysis and not report.channel_strategy_analysis.error %}
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="card-title">🏪 채널 전략 & 가격 전략 분석</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">판매 채널별 시장 점유율과 최적 진입 기회 분석</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 채널 분석 요약 카드 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- 총 채널 수 -->
+                    <div class="stat-card text-center">
+                        <div class="stat-label">📊 분석 채널 수</div>
+                        <div class="stat-value text-2xl text-blue-600 dark:text-blue-400">
+                            {{ report.channel_strategy_analysis.analysis_summary.total_channels }}
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">개 쇼핑몰</div>
+                    </div>
+
+                    <!-- 지배적 채널 -->
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🏆 최대 점유율 채널</div>
+                        <div class="stat-value text-sm font-semibold text-green-600 dark:text-green-400">
+                            {{ report.channel_strategy_analysis.analysis_summary.dominant_channel.name }}
+                        </div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            {{ "%.1f"|format(report.channel_strategy_analysis.analysis_summary.dominant_channel.share) }}% 점유율
+                        </div>
+                    </div>
+
+                    <!-- 채널 다양성 지수 -->
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🔄 채널 다양성 지수</div>
+                        <div class="stat-value text-2xl text-orange-600 dark:text-orange-400">
+                            {{ "%.2f"|format(report.channel_strategy_analysis.analysis_summary.channel_diversity) }}
+                        </div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Shannon Index</div>
+                    </div>
+
+                    <!-- 기회 수 -->
+                    <div class="stat-card text-center">
+                        <div class="stat-label">🎯 발견된 기회</div>
+                        <div class="stat-value text-2xl text-purple-600 dark:text-purple-400">
+                            {{ report.channel_strategy_analysis.analysis_summary.top_opportunities }}
+                        </div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">개 기회</div>
+                    </div>
+                </div>
+
+                <!-- 탭 네비게이션 -->
+                <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+                    <nav class="-mb-px flex space-x-8">
+                        <button id="channel-share-tab" class="active border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            📈 채널별 점유율
+                        </button>
+                        <button id="price-strategy-tab" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            💰 가격대별 전략
+                        </button>
+                        <button id="channel-opportunities-tab" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            🎯 진입 기회
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- 채널별 점유율 탭 내용 -->
+                <div id="channel-share-content" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- 상위 채널 점유율 -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">상위 판매 채널 점유율</h4>
+                            <div class="space-y-3">
+                                {% for channel in report.channel_strategy_analysis.channel_analysis.channels[:10] %}
+                                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div>
+                                        <div class="font-medium text-gray-900 dark:text-white">{{ channel.mall_name }}</div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                                            평균 가격: {{ "{:,}".format(channel.avg_price|int) }}원
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-semibold text-blue-600 dark:text-blue-400">{{ "%.1f"|format(channel.market_share) }}%</div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400">{{ channel.product_count }}개 상품</div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- 경쟁 강도 분석 -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">채널별 경쟁 강도</h4>
+                            <div class="space-y-3">
+                                {% for competition in report.channel_strategy_analysis.competition_analysis.channel_competition[:8] %}
+                                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div>
+                                        <div class="font-medium text-gray-900 dark:text-white">{{ competition.mall_name }}</div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                                            {{ competition.product_count }}개 상품, {{ competition.brand_count }}개 브랜드
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full
+                                            {% if competition.competition_level == '매우 높음' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                            {% elif competition.competition_level == '높음' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                            {% elif competition.competition_level == '보통' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                            {% else %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% endif %}">
+                                            {{ competition.competition_level }}
+                                        </span>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ "%.1f"|format(competition.competition_score) }}점</div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 가격대별 전략 탭 내용 -->
+                <div id="price-strategy-content" class="tab-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- 가격대별 분포 -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">가격대별 시장 분포</h4>
+                            <div class="space-y-4">
+                                {% for tier_name, tier_data in report.channel_strategy_analysis.price_strategy.price_tiers.items() %}
+                                <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="font-medium text-gray-900 dark:text-white">
+                                            {% if tier_name == 'budget' %}💰 저가격대
+                                            {% elif tier_name == 'mid_range' %}💵 중간가격대
+                                            {% elif tier_name == 'premium' %}💎 프리미엄
+                                            {% else %}👑 럭셔리{% endif %}
+                                        </div>
+                                        <div class="font-semibold text-blue-600 dark:text-blue-400">{{ "%.1f"|format(tier_data.market_share) }}%</div>
+                                    </div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                        {{ tier_data.price_range }}
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span>{{ tier_data.product_count }}개 상품</span>
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium
+                                            {% if tier_data.competition_level == '높은 경쟁' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                            {% elif tier_data.competition_level == '보통 경쟁' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                            {% else %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% endif %}">
+                                            {{ tier_data.competition_level }}
+                                        </span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
+                                        <div class="bg-blue-600 h-2 rounded-full" style="width: {{ tier_data.market_share }}%"></div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- 가격 공백 구간 -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">가격 공백 구간 기회</h4>
+                            {% if report.channel_strategy_analysis.price_strategy.market_gaps %}
+                            <div class="space-y-3">
+                                {% for gap in report.channel_strategy_analysis.price_strategy.market_gaps %}
+                                <div class="p-4 border-2 border-dashed border-orange-300 dark:border-orange-600 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="font-medium text-orange-800 dark:text-orange-200">공백 구간 발견</div>
+                                        <div class="text-sm text-orange-600 dark:text-orange-400">기회 점수: {{ "%.0f"|format(gap.opportunity_score) }}</div>
+                                    </div>
+                                    <div class="text-sm text-orange-700 dark:text-orange-300">
+                                        {{ "{:,}".format(gap.start_price) }}원 → {{ "{:,}".format(gap.end_price) }}원
+                                    </div>
+                                    <div class="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                                        공백 크기: {{ "{:,}".format(gap.gap_size) }}원
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                                <div class="text-4xl mb-2">🔍</div>
+                                <p>현재 분석된 가격 범위에서<br>뚜렷한 공백 구간이 발견되지 않았습니다.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 진입 기회 탭 내용 -->
+                <div id="channel-opportunities-content" class="tab-content hidden">
+                    {% if report.channel_strategy_analysis.market_opportunities %}
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {% for opportunity in report.channel_strategy_analysis.market_opportunities %}
+                        <div class="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                            <div class="flex items-start justify-between mb-4">
+                                <div>
+                                    <div class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                        {{ opportunity.type }}
+                                    </div>
+                                    {% if opportunity.channel %}
+                                    <h5 class="text-lg font-semibold text-gray-900 dark:text-white">{{ opportunity.channel }}</h5>
+                                    {% elif opportunity.tier %}
+                                    <h5 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                        {% if opportunity.tier == 'budget' %}💰 저가격대
+                                        {% elif opportunity.tier == 'mid_range' %}💵 중간가격대
+                                        {% elif opportunity.tier == 'premium' %}💎 프리미엄
+                                        {% else %}👑 럭셔리{% endif %}
+                                    </h5>
+                                    {% endif %}
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ "%.0f"|format(opportunity.opportunity_score) }}</div>
+                                    <div class="text-xs text-gray-600 dark:text-gray-400">기회점수</div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                {% if opportunity.market_share is defined %}
+                                <div>시장 점유율: <span class="font-medium">{{ "%.1f"|format(opportunity.market_share) }}%</span></div>
+                                {% endif %}
+                                {% if opportunity.avg_price is defined %}
+                                <div>평균 가격: <span class="font-medium">{{ "{:,}".format(opportunity.avg_price|int) }}원</span></div>
+                                {% endif %}
+                                {% if opportunity.price_range is defined %}
+                                <div>가격 범위: <span class="font-medium">{{ opportunity.price_range }}</span></div>
+                                {% endif %}
+                            </div>
+
+                            <div class="p-3 bg-white dark:bg-gray-800 rounded border-l-4 border-purple-500">
+                                <div class="text-sm text-gray-700 dark:text-gray-300">
+                                    💡 <strong>분석 결과:</strong><br>
+                                    {{ opportunity.reasoning }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">🔍</div>
+                        <h4 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">진입 기회 분석 중</h4>
+                        <p class="text-gray-600 dark:text-gray-400">현재 시장에서 뚜렷한 진입 기회를 찾고 있습니다.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 전략 요약 -->
+                <div class="mt-8 p-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📋 채널 전략 요약</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white mb-2">🏆 가장 경쟁이 치열한 가격대</div>
+                            <div class="text-gray-600 dark:text-gray-400">{{ report.channel_strategy_analysis.analysis_summary.price_tier_analysis.most_competitive }}</div>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white mb-2">🎯 최고의 진입 기회</div>
+                            <div class="text-gray-600 dark:text-gray-400">{{ report.channel_strategy_analysis.analysis_summary.price_tier_analysis.best_opportunity }}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         {% endif %}

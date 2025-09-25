@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Amazon Market Insights Pro{% endblock %}
+{% block title %}Naver Market Insights Pro{% endblock %}
 
 {% block content %}
 <div class="animate-fade-in">
     <!-- Hero Section -->
     <div class="text-center mb-12">
-        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
             <span class="text-6xl">🚀</span><br>
             Market Insights Pro
         </h1>
-        <p class="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Discover Amazon market trends, analyze competition, and find profitable opportunities with advanced data analytics
+        <p class="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+            Discover Naver market trends, analyze competition, and find profitable opportunities with advanced data analytics
         </p>
     </div>
 
@@ -21,16 +21,16 @@
             <div class="card-body">
                 <form id="analysisForm" action="/report" method="post" class="space-y-6">
                     <div>
-                        <label for="keyword" class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="keyword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Product Keyword
                         </label>
-                        <input type="text" 
-                               class="input-field text-lg py-4" 
-                               id="keyword" 
-                               name="keyword" 
-                               placeholder="Enter keyword... (e.g., wireless mouse, bluetooth headphones)" 
+                        <input type="text"
+                               class="input-field text-lg py-4"
+                               id="keyword"
+                               name="keyword"
+                               placeholder="Enter keyword... (e.g., wireless mouse, bluetooth headphones)"
                                required>
-                        <p class="text-sm text-gray-500 mt-2">💡 Try specific product categories for better insights</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">💡 Try specific product categories for better insights</p>
                     </div>
                     <button type="submit" class="btn btn-primary w-full text-lg py-4">
                         <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
