@@ -101,11 +101,11 @@ def get_analyzer():
     return naver_analyzer
 
 async def generate_ml_predictions(products_data: list, keyword: str) -> dict:
-    """제품 데이터를 기반으로 ML 예측 결과를 생성"""
+    """🎯 제품 데이터를 기반으로 최적 가격 추천 결과 생성 (기존 ML 모델 활용)"""
     try:
         ml_service = get_ml_serving_service()
 
-        # 상위 5개 제품에 대해 가격 예측 수행
+        # 상위 5개 제품에 대해 최적 가격 추천 수행
         top_products = products_data[:5] if len(products_data) >= 5 else products_data
 
         predictions = []
@@ -126,68 +126,91 @@ async def generate_ml_predictions(products_data: list, keyword: str) -> dict:
                             review_count=int(product.get('product_num_reviews', 100))
                         )
 
-                        prediction = await ml_service.predict_price(request)
+                        recommendation = await ml_service.predict_price(request)
                         predictions.append({
                             'product_id': product.get('product_id'),
                             'product_title': product.get('product_title'),
-                            'predicted_price': prediction.predicted_price,
-                            'confidence_interval': prediction.confidence_interval,
+                            # 🎯 최적 가격 추천 데이터
+                            'recommended_price': recommendation.recommended_price,
+                            'price_range': recommendation.price_range,
+                            'competitor_analysis': recommendation.competitor_analysis,
+                            'profitability_analysis': recommendation.profitability_analysis,
+                            'pricing_strategy': recommendation.pricing_strategy,
+                            'confidence_score': recommendation.confidence_score,
+                            # 기존 비교 데이터 유지
                             'actual_price': float(product.get('discounted_price', 0)),
-                            'prediction_accuracy': abs(prediction.predicted_price - float(product.get('discounted_price', 0))) / float(product.get('discounted_price', 1)) * 100
+                            'price_accuracy': 100 - (abs(recommendation.recommended_price - float(product.get('discounted_price', 0))) / max(float(product.get('discounted_price', 0)), 1) * 100),
+                            'prediction_accuracy': 100 - (abs(recommendation.recommended_price - float(product.get('discounted_price', 0))) / max(float(product.get('discounted_price', 0)), 1) * 100)  # 호환성을 위한 중복 필드
                         })
                         prediction_success = True
-                        logger.info(f"✅ 실제 ML 예측 성공: {product.get('product_title')}")
+                        logger.info(f"✅ 실제 AI 가격 추천 성공: {product.get('product_title')}")
                     except Exception as ml_e:
-                        logger.warning(f"ML 예측 실패, 더미 데이터로 대체: {ml_e}")
+                        logger.warning(f"가격 추천 실패, 더미 데이터로 대체: {ml_e}")
                         prediction_success = False
 
                 # ML 서비스가 없거나 실패한 경우 더미 데이터 생성
                 if not prediction_success:
                     actual_price = float(product.get('discounted_price', 0))
                     if actual_price > 0:
-                        # 실제 가격 기반 예측 시뮬레이션 (±15% 범위)
+                        # 실제 가격 기반 추천 시뮬레이션 (±15% 범위)
                         import random
                         variation = random.uniform(-0.15, 0.15)
-                        predicted_price = actual_price * (1 + variation)
-                        accuracy_error = abs(predicted_price - actual_price) / actual_price * 100
+                        recommended_price = actual_price * (1 + variation)
+                        accuracy_score = 100 - (abs(recommended_price - actual_price) / actual_price * 100)
 
                         predictions.append({
                             'product_id': product.get('product_id'),
                             'product_title': product.get('product_title'),
-                            'predicted_price': round(predicted_price, 2),
-                            'confidence_interval': [round(predicted_price * 0.9, 2), round(predicted_price * 1.1, 2)],
+                            # 🎯 더미 최적 가격 추천 데이터 (실제 ML 구조와 동일)
+                            'recommended_price': round(recommended_price, 2),
+                            'price_range': {
+                                'min': round(recommended_price * 0.9, 2),
+                                'max': round(recommended_price * 1.1, 2)
+                            },
+                            'competitor_analysis': {
+                                'position': 'competitive' if variation > 0 else 'aggressive',
+                                'market_share_potential': 'medium'
+                            },
+                            'profitability_analysis': {
+                                'profit_margin': round(20 + variation * 10, 1),
+                                'roi_estimate': round(15 + variation * 5, 1)
+                            },
+                            'pricing_strategy': f"{'프리미엄' if variation > 0.05 else ('경쟁적' if variation > -0.05 else '가격우위')} 전략 권장",
+                            'confidence_score': round(0.7 + random.uniform(0, 0.2), 2),
+                            # 기존 비교 데이터 유지
                             'actual_price': actual_price,
-                            'prediction_accuracy': round(100 - accuracy_error, 1)  # 정확도는 100에서 오차율을 뺀 값
+                            'price_accuracy': round(accuracy_score, 1),
+                            'prediction_accuracy': round(accuracy_score, 1)  # 호환성을 위한 중복 필드
                         })
-                        logger.info(f"📊 더미 ML 예측 생성: {product.get('product_title')}")
+                        logger.info(f"📊 더미 가격 추천 생성: {product.get('product_title')}")
 
             except Exception as e:
                 logger.error(f"개별 제품 예측 실패: {e}")
                 continue
 
-        # 예측 결과 통계 계산
+        # 추천 결과 통계 계산
         if predictions:
-            avg_predicted_price = sum(p['predicted_price'] for p in predictions) / len(predictions)
+            avg_recommended_price = sum(p['recommended_price'] for p in predictions) / len(predictions)
             avg_actual_price = sum(p['actual_price'] for p in predictions) / len(predictions)
             avg_accuracy = sum(p['prediction_accuracy'] for p in predictions) / len(predictions)
 
             # 시장 기회 점수 계산 (0-100점)
             market_opportunity_score = max(0, min(100,
-                50 + (avg_predicted_price - avg_actual_price) / avg_actual_price * 100
+                50 + (avg_recommended_price - avg_actual_price) / avg_actual_price * 100
             ))
 
             return {
                 'has_ml_predictions': True,
                 'ml_predictions': predictions,
                 'prediction_summary': {
-                    'average_predicted_price': round(avg_predicted_price, 2),
+                    'average_predicted_price': round(avg_recommended_price, 2),
                     'average_actual_price': round(avg_actual_price, 2),
-                    'prediction_accuracy': round(100 - avg_accuracy, 2),  # 정확도 (높을수록 좋음)
+                    'prediction_accuracy': round(avg_accuracy, 2),  # 정확도 (높을수록 좋음)
                     'market_opportunity_score': round(market_opportunity_score, 1),
                     'total_predictions': len(predictions)
                 },
                 'recommendation': {
-                    'price_trend': 'rising' if avg_predicted_price > avg_actual_price else 'stable' if abs(avg_predicted_price - avg_actual_price) < avg_actual_price * 0.05 else 'falling',
+                    'price_trend': 'rising' if avg_recommended_price > avg_actual_price else 'stable' if abs(avg_recommended_price - avg_actual_price) < avg_actual_price * 0.05 else 'falling',
                     'market_attractiveness': 'high' if market_opportunity_score >= 70 else 'medium' if market_opportunity_score >= 40 else 'low'
                 }
             }
@@ -2373,9 +2396,10 @@ async def monitoring_dashboard_ui(request: Request):
 @app.post("/api/ml/predict/price", response_model=PricePredictionResponse)
 async def predict_price(request: PricePredictionRequest):
     """
-    💰 실시간 가격 예측 API
+    🎯 최적 가격 추천 API
 
-    XGBoost 모델을 사용하여 상품의 예상 가격을 예측합니다.
+    AI 모델을 활용하여 경쟁력 있는 최적 판매 가격을 추천하고
+    수익성 분석과 가격 전략을 제공합니다.
     """
     success = False
     latency_ms = 0.0
@@ -2393,10 +2417,14 @@ async def predict_price(request: PricePredictionRequest):
         # 모니터링 이벤트 기록
         monitoring_service = get_ml_monitoring_service()
         monitoring_service.record_prediction_event(
-            model_name="price_predictor",
+            model_name="price_recommender",
             success=success,
             latency_ms=latency_ms,
-            features=request.model_dump()
+            features={
+                **request.model_dump(),
+                "recommended_price": result.recommended_price,
+                "confidence_score": result.confidence_score
+            }
         )
 
         return result
@@ -2407,13 +2435,13 @@ async def predict_price(request: PricePredictionRequest):
         # 실패 이벤트도 모니터링에 기록
         monitoring_service = get_ml_monitoring_service()
         monitoring_service.record_prediction_event(
-            model_name="price_predictor",
+            model_name="price_recommender",
             success=False,
             latency_ms=latency_ms,
             features=request.model_dump()
         )
 
-        raise HTTPException(status_code=500, detail=f"가격 예측 중 오류가 발생했습니다: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"가격 추천 중 오류가 발생했습니다: {str(e)}")
 
 
 @app.post("/api/ml/predict/batch", response_model=BatchPredictionResponse)

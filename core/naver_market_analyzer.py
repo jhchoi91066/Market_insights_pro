@@ -10,6 +10,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import statistics
+from dotenv import load_dotenv
 
 from .naver_shopping_api import NaverShoppingSearchAPI
 from .naver_datalab_api import NaverDataLabAPI
@@ -28,9 +29,16 @@ class NaverMarketAnalyzer:
         """분석기 초기화"""
         logger.info("🚀 네이버 기반 시장 분석기 초기화 중...")
 
+        # 환경변수 강제 로드 (여러 번 로드해도 안전)
+        load_dotenv('.env.development')
+        load_dotenv()  # 기본 .env 파일도 시도
+
         # API 키 확인
         self.client_id = os.getenv('NAVER_CLIENT_ID')
         self.client_secret = os.getenv('NAVER_CLIENT_SECRET')
+
+        logger.debug(f"로드된 API 키: {self.client_id[:10] if self.client_id else 'None'}...")
+        logger.debug(f"로드된 Secret: {self.client_secret[:5] if self.client_secret else 'None'}...")
 
         if not self.client_id or not self.client_secret:
             logger.error("❌ 네이버 API 키가 설정되지 않았습니다.")

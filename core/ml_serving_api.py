@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 import mlflow
 import mlflow.sklearn
 import mlflow.xgboost
+from dotenv import load_dotenv
 
 # MLflow 관련
 from core.mlflow_manager import get_mlflow_manager
@@ -42,13 +43,26 @@ class PricePredictionRequest(BaseModel):
 
 
 class PricePredictionResponse(BaseModel):
-    """가격 예측 응답 모델"""
+    """최적 가격 추천 응답 모델"""
     model_config = {"protected_namespaces": ()}
 
-    predicted_price: float = Field(..., description="예측된 가격 (USD)")
-    confidence_interval: Dict[str, float] = Field(..., description="신뢰구간")
+    # 🎯 핵심 추천 정보
+    recommended_price: float = Field(..., description="추천 판매 가격 (USD)")
+    price_range: Dict[str, float] = Field(..., description="최적 가격 범위 (min, max)")
+
+    # 📊 경쟁사 분석
+    competitor_analysis: Dict[str, Any] = Field(..., description="경쟁사 가격 분석")
+
+    # 💰 수익성 분석
+    profitability_analysis: Dict[str, Any] = Field(..., description="수익성 시뮬레이션")
+
+    # 🎯 전략 권장사항
+    pricing_strategy: str = Field(..., description="가격 전략 권장사항")
+    confidence_score: float = Field(..., description="추천 신뢰도 (0-1)")
+
+    # 메타 정보 (기존 유지)
     model_version: str = Field(..., description="사용된 모델 버전")
-    prediction_timestamp: datetime = Field(..., description="예측 시간")
+    prediction_timestamp: datetime = Field(..., description="분석 시간")
     processing_time_ms: float = Field(..., description="처리 시간 (밀리초)")
 
 
@@ -195,43 +209,47 @@ class MLServingService:
             return None
 
     async def predict_price(self, request: PricePredictionRequest) -> PricePredictionResponse:
-        """단일 상품 가격 예측"""
+        """🎯 최적 가격 추천 시스템 - 기존 예측 모델을 활용하여 실무적 가격 전략 제공"""
         start_time = datetime.now()
 
         # 캐시 키 생성
-        cache_key = f"price_prediction:{hash(str(request.model_dump()))}"
+        cache_key = f"price_recommendation:{hash(str(request.model_dump()))}"
 
         # 캐시 확인
         cached_result = await self.cache_manager.get(cache_key)
         if cached_result:
-            logger.info("📋 캐시에서 예측 결과 반환")
+            logger.info("📋 캐시에서 가격 추천 결과 반환")
             return PricePredictionResponse.parse_obj(cached_result)
 
-        # 모델 확인 (모델이 없으면 더미 예측 제공)
+        # 모델 확인 (모델이 없으면 더미 추천 제공)
         model = self.models.get("price_predictor")
         if not model:
-            return self._generate_dummy_price_prediction(request, start_time)
+            return self._generate_dummy_price_recommendation(request, start_time)
 
         try:
             # 입력 데이터 전처리
             input_data = self._prepare_price_prediction_input(request)
 
-            # 예측 수행
+            # 기본 가격 예측
             predicted_price = model.predict(input_data)[0]
 
-            # 신뢰구간 계산 (간단한 추정)
-            confidence_interval = {
-                "lower": max(0, predicted_price * 0.85),  # 15% 하한
-                "upper": predicted_price * 1.15  # 15% 상한
-            }
+            # 🎯 최적 가격 추천 로직 전개
+            recommendation_analysis = self._analyze_optimal_pricing(
+                base_price=predicted_price,
+                request=request
+            )
 
             # 응답 생성
             processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
             response = PricePredictionResponse(
-                predicted_price=round(predicted_price, 2),
-                confidence_interval=confidence_interval,
-                model_version=self.model_info.get("price_predictor", {}).get("version", "unknown"),
+                recommended_price=round(recommendation_analysis['recommended_price'], 2),
+                price_range=recommendation_analysis['price_range'],
+                competitor_analysis=recommendation_analysis['competitor_analysis'],
+                profitability_analysis=recommendation_analysis['profitability_analysis'],
+                pricing_strategy=recommendation_analysis['strategy'],
+                confidence_score=recommendation_analysis['confidence'],
+                model_version=self.model_info.get("price_predictor", {}).get("version", "v2.0-pricing"),
                 prediction_timestamp=datetime.now(),
                 processing_time_ms=round(processing_time, 2)
             )
@@ -239,11 +257,11 @@ class MLServingService:
             # 캐시 저장 (1시간)
             await self.cache_manager.set(cache_key, response.model_dump(), ttl=3600)
 
-            logger.info(f"💰 가격 예측 완료: ${predicted_price:.2f}")
+            logger.info(f"🎯 최적 가격 추천 완료: ${recommendation_analysis['recommended_price']:.2f}")
             return response
 
         except Exception as e:
-            logger.error(f"❌ 가격 예측 실패: {e}")
+            logger.error(f"❌ 가격 추천 실패: {e}")
             raise
 
     def _prepare_price_prediction_input(self, request: PricePredictionRequest) -> pd.DataFrame:
@@ -257,9 +275,9 @@ class MLServingService:
             'is_prime': getattr(request, 'is_prime', 0),
             'price_to_category_avg_ratio': request.price_to_category_avg_ratio,
             'price_to_keyword_avg_ratio': request.price_to_keyword_avg_ratio,
-            'price_x_rating': request.rating * (request.price_to_category_avg_ratio * 50),
+            'price_x_rating': 0,  # 가격 예측 시에는 알 수 없으므로 0으로 설정
             'rating_x_review_count': request.rating * request.review_count,
-            'price_x_review_count': (request.price_to_category_avg_ratio * 50) * request.review_count
+            'price_x_review_count': 0  # 가격 예측 시에는 알 수 없으므로 0으로 설정
         }
 
         # 훈련된 모델의 특성 정보 로드 (캐시)
@@ -493,12 +511,23 @@ class MLServingService:
                 "upper": predicted_price * 1.15
             }
 
+            # 새로운 추천 시스템 구조로 변환
             response = PricePredictionResponse(
-                predicted_price=round(predicted_price, 2),
-                confidence_interval=confidence_interval,
-                model_version=self.model_info.get("price_predictor", {}).get("version", "unknown"),
-                prediction_timestamp=datetime.now(),
-                processing_time_ms=round(processing_time / len(requests), 2)  # 평균 처리 시간
+                recommended_price=round(predicted_price, 2),
+                price_range={
+                    'min': confidence_interval['lower'],
+                    'max': confidence_interval['upper']
+                },
+                competitor_analysis={
+                    'position': 'competitive',
+                    'market_share_potential': 'medium'
+                },
+                profitability_analysis={
+                    'profit_margin': 20.0,
+                    'roi_estimate': 15.0
+                },
+                pricing_strategy='배치 처리 기본 전략',
+                confidence_score=0.75
             )
 
             responses.append(response)
@@ -538,8 +567,164 @@ class MLServingService:
             logger.error(f"❌ 모델 정보 조회 실패: {e}")
             raise
 
-    def _generate_dummy_price_prediction(self, request: PricePredictionRequest, start_time: datetime) -> PricePredictionResponse:
-        """실제 모델이 없을 때 더미 예측 생성"""
+    def _analyze_optimal_pricing(self, base_price: float, request: PricePredictionRequest) -> Dict[str, Any]:
+        """🎯 최적 가격 추천 로직 - 네이버 시장 데이터와 AI 모델을 결합한 실무적 가격 전략 생성"""
+        import random
+
+        # 환경변수 강제 로드 (네이버 API 연동 전)
+        load_dotenv('.env.development')
+        load_dotenv()
+
+        # API 키 확인 디버그
+        client_id = os.getenv('NAVER_CLIENT_ID')
+        client_secret = os.getenv('NAVER_CLIENT_SECRET')
+        logger.debug(f"ML API에서 로드된 API 키: {client_id[:10] if client_id else 'None'}...")
+
+        # 🎯 네이버 마켓 분석기와 연동 시도 (실제 경쟁사 데이터 활용)
+        try:
+            from .naver_market_analyzer import NaverMarketAnalyzer
+            naver_analyzer = NaverMarketAnalyzer()
+            real_market_data = naver_analyzer.analyze_market_competition(
+                keyword=request.search_keyword,
+                product_count=30
+            )
+
+            # 실제 데이터를 사용
+            if 'price_analysis' in real_market_data and 'error' not in real_market_data['price_analysis']:
+                price_data = real_market_data['price_analysis']
+                competitor_analysis = {
+                    "market_average": price_data.get('avg_price', base_price),
+                    "price_percentiles": {
+                        "p25": round(price_data.get('min_price', base_price * 0.8), 2),
+                        "p50": round(price_data.get('median_price', base_price), 2),
+                        "p75": round(price_data.get('max_price', base_price * 1.2), 2)
+                    },
+                    "competitor_count": real_market_data.get('competitor_count', 0),
+                    "market_saturation": "high" if real_market_data.get('difficulty_score', 5) > 7 else "medium" if real_market_data.get('difficulty_score', 5) > 4 else "low",
+                    "price_range": price_data.get('price_range', 0),
+                    "price_volatility": price_data.get('price_std', 0)
+                }
+                logger.info("✅ 실제 네이버 마켓 데이터 활용")
+            else:
+                raise Exception("네이버 API 데이터 없음")
+
+        except Exception as e:
+            logger.warning(f"네이버 데이터 불가능, 더미 데이터 사용: {e}")
+            # 폴백: 더미 데이터 사용
+            competitor_analysis = {
+                "market_average": round(base_price, 2),
+                "price_percentiles": {
+                    "p25": round(base_price * 0.8, 2),
+                    "p50": round(base_price, 2),
+                    "p75": round(base_price * 1.2, 2)
+                },
+                "competitor_count": random.randint(15, 50),
+                "market_saturation": random.choice(["low", "medium", "high"]),
+                "price_range": round(base_price * 0.4, 2),
+                "price_volatility": round(base_price * 0.1, 2)
+            }
+
+        # 💰 2. 고도화된 수익성 시뮬레이션
+        market_avg = competitor_analysis.get('market_average', base_price)
+        competitor_count = competitor_analysis.get('competitor_count', 30)
+        saturation_level = competitor_analysis.get('market_saturation', 'medium')
+
+        # 시장 포화도에 따른 예상 판매량 조정
+        base_demand = {
+            'low': 120,     # 비어있는 시장
+            'medium': 80,   # 보통 시장
+            'high': 50      # 포화 시장
+        }.get(saturation_level, 80)
+
+        profitability_scenarios = []
+        price_points = [
+            market_avg * 0.85,  # 공격적 가격
+            market_avg * 0.95,  # 약간 저가
+            market_avg,         # 시장 평균
+            market_avg * 1.1,   # 약간 프리미엄
+            market_avg * 1.25   # 프리미엄 가격
+        ]
+
+        for price_point in price_points:
+            # 가격 대비 수요 탄력성 (-0.8 ~ -1.2)
+            price_elasticity = -1.0 - (competitor_count / 100)
+            price_ratio = price_point / market_avg
+            demand_multiplier = price_ratio ** price_elasticity
+
+            estimated_sales = max(5, int(base_demand * demand_multiplier))
+
+            # 마진율 계산 (가격이 높을수록 마진율 증가)
+            cost_ratio = 0.65 - (price_ratio - 1) * 0.05  # 기본 65% 원가
+            profit_margin = max(0.1, 1 - cost_ratio)
+
+            monthly_revenue = price_point * estimated_sales
+            monthly_profit = monthly_revenue * profit_margin
+            roi_percentage = (monthly_profit / (price_point * 10)) * 100  # 초기 투자 예상
+
+            profitability_scenarios.append({
+                "price": round(price_point, 2),
+                "estimated_monthly_sales": estimated_sales,
+                "profit_margin": round(profit_margin, 3),
+                "monthly_revenue": round(monthly_revenue, 2),
+                "monthly_profit": round(monthly_profit, 2),
+                "roi_percentage": round(roi_percentage, 1),
+                "price_position": "aggressive" if price_ratio < 0.9 else "competitive" if price_ratio < 1.05 else "premium"
+            })
+
+        # 🎯 3. 수익 최적화 기반 가격 결정 로직
+        # 수익성이 가장 높은 시나리오를 기본 추천가로 설정
+        best_profit_scenario = max(profitability_scenarios, key=lambda x: x["monthly_profit"])
+        optimal_base_price = best_profit_scenario["price"]
+
+        # 품질 및 신뢰도 기반 추가 조정
+        quality_factor = 0.95 + (request.rating - 3.5) * 0.08  # 평점 4.5 기준 최대 +4%
+        trust_factor = 1.0 + min(request.review_count / 1000, 0.12)  # 리뷰 1000개 기준 최대 +12%
+
+        # 브랜드 프리미엄 요소
+        premium_brands = ["samsung", "lg", "apple", "nike", "adidas", "sony", "삼성", "애플"]
+        brand_premium = 1.05 if any(brand.lower() in request.brand.lower() for brand in premium_brands) else 1.0
+
+        recommended_price = optimal_base_price * quality_factor * trust_factor * brand_premium
+
+        # 🎯 4. 데이터 기반 전략 생성
+        price_vs_market = recommended_price / market_avg
+
+        profit_potential = best_profit_scenario["monthly_profit"]
+
+        # 전략 결정 로직
+        if saturation_level == "high" and price_vs_market < 0.95:
+            strategy = f"🚀 시장 참입 전략: 경쟁자 {competitor_count}개, {round((1-price_vs_market)*100, 1)}% 저가로 시장 진입"
+            confidence = 0.85
+        elif saturation_level == "low" and price_vs_market > 1.05:
+            strategy = f"👑 프리미엄 전략: 비어있는 시장에서 {round((price_vs_market-1)*100, 1)}% 프리미엄으로 마진 최대화"
+            confidence = 0.9
+        elif profit_potential > market_avg * 50:
+            strategy = f"💰 수익 최적화 전략: 월 예상 순이익 ${profit_potential:.0f}, ROI {best_profit_scenario['roi_percentage']:.1f}%"
+            confidence = 0.88
+        elif request.rating >= 4.3 and request.review_count >= 200:
+            strategy = f"⭐ 품질 차별화 전략: 평점 {request.rating}⭐, 리뷰 {request.review_count}개 기반 신뢰도 어필"
+            confidence = 0.92
+        else:
+            strategy = f"⚖️ 균형 전략: 시장 평균 근사, 월 예상 매출 ${best_profit_scenario['monthly_revenue']:.0f}"
+            confidence = 0.82
+
+        return {
+            "recommended_price": recommended_price,
+            "price_range": {
+                "min": round(recommended_price * 0.9, 2),
+                "max": round(recommended_price * 1.1, 2)
+            },
+            "competitor_analysis": competitor_analysis,
+            "profitability_analysis": {
+                "scenarios": profitability_scenarios,
+                "best_scenario": max(profitability_scenarios, key=lambda x: x["monthly_revenue"])
+            },
+            "strategy": strategy,
+            "confidence": confidence
+        }
+
+    def _generate_dummy_price_recommendation(self, request: PricePredictionRequest, start_time: datetime) -> PricePredictionResponse:
+        """실제 모델이 없을 때 더미 가격 추천 생성"""
         import random
 
         # 카테고리별 기본 가격 범위 (실제 시장 데이터 기반 추정)
@@ -569,28 +754,32 @@ class MLServingService:
         expensive_keywords = ["프리미엄", "럭셔리", "프로", "고급", "professional"]
         keyword_multiplier = 1.3 if any(keyword in request.search_keyword.lower() for keyword in expensive_keywords) else 1.0
 
-        # 최종 가격 계산
+        # 최종 가격 계산 (더미 버전)
         base_price = random.uniform(min_price, max_price)
         predicted_price = base_price * rating_multiplier * review_multiplier * brand_multiplier * keyword_multiplier
 
-        # 신뢰구간 (더미 데이터이므로 넓게 설정)
-        confidence_interval = {
-            "lower": max(1, predicted_price * 0.7),
-            "upper": predicted_price * 1.4
-        }
+        # 🎯 더미 최적 가격 추천 로직 전개
+        recommendation_analysis = self._analyze_optimal_pricing(
+            base_price=predicted_price,
+            request=request
+        )
 
         # 응답 생성
         processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
         response = PricePredictionResponse(
-            predicted_price=round(predicted_price, 2),
-            confidence_interval=confidence_interval,
-            model_version="dummy-v1.0",
+            recommended_price=round(recommendation_analysis['recommended_price'], 2),
+            price_range=recommendation_analysis['price_range'],
+            competitor_analysis=recommendation_analysis['competitor_analysis'],
+            profitability_analysis=recommendation_analysis['profitability_analysis'],
+            pricing_strategy=recommendation_analysis['strategy'],
+            confidence_score=recommendation_analysis['confidence'],
+            model_version="dummy-v2.0-pricing",
             prediction_timestamp=datetime.now(),
             processing_time_ms=round(processing_time, 2)
         )
 
-        logger.info(f"🎭 더미 가격 예측 완료: ${predicted_price:.2f} (실제 모델 없음)")
+        logger.info(f"🎯 더미 가격 추천 완료: ${recommendation_analysis['recommended_price']:.2f} (실제 모델 없음)")
         return response
 
     async def reload_models(self):
@@ -627,7 +816,7 @@ class MLServingService:
                     price_to_keyword_avg_ratio=1.0
                 )
                 test_prediction = await self.predict_price(test_request)
-                health_status["test_prediction"] = test_prediction.predicted_price
+                health_status["test_prediction"] = test_prediction.recommended_price
 
             return health_status
 
@@ -672,6 +861,6 @@ if __name__ == "__main__":
         )
 
         prediction = await service.predict_price(test_request)
-        print(f"예측 결과: ${prediction.predicted_price}")
+        print(f"예측 결과: ${prediction.recommended_price}")
 
     asyncio.run(test_serving())

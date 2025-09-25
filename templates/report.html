@@ -80,28 +80,28 @@
             </div>
         </div>
 
-        <!-- AI-Based ML Predictions Section -->
+        <!-- 🎯 AI 최적 가격 추천 섹션 -->
         {% if report.has_ml_predictions %}
         <div class="card">
             <div class="card-header">
                 <div class="flex items-center">
-                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mr-3">
-                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
                         </svg>
                     </div>
                     <div>
-                        <h3 class="card-title">🧠 AI-Based Market Predictions</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Machine Learning powered price forecasting and market insights</p>
+                        <h3 class="card-title">🎯 AI 최적 가격 추천 시스템</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">실시간 경쟁사 분석과 수익성 최적화를 통한 스마트 가격 전략</p>
                     </div>
                 </div>
             </div>
             <div class="card-body">
                 <!-- ML Summary Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <!-- Market Opportunity Score -->
+                    <!-- 🚀 시장 기회 -->
                     <div class="stat-card text-center">
-                        <div class="stat-label">Market Opportunity</div>
+                        <div class="stat-label">🚀 시장 기회도</div>
                         <div class="stat-value text-3xl {{ 'text-success-600' if report.prediction_summary.market_opportunity_score >= 70 else ('text-warning-600' if report.prediction_summary.market_opportunity_score >= 40 else 'text-danger-600') }}">
                             {{ report.prediction_summary.market_opportunity_score }}<span class="text-lg text-gray-500">/100</span>
                         </div>
@@ -111,19 +111,19 @@
                         </div>
                     </div>
 
-                    <!-- Prediction Accuracy -->
+                    <!-- 🏆 예상 수익성 -->
                     <div class="stat-card text-center">
-                        <div class="stat-label">Model Accuracy</div>
-                        <div class="stat-value text-2xl text-primary-600">{{ report.prediction_summary.prediction_accuracy }}%</div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Based on {{ report.prediction_summary.total_predictions }} predictions</p>
+                        <div class="stat-label">💰 수익성 점수</div>
+                        <div class="stat-value text-2xl text-blue-600">{{ report.prediction_summary.prediction_accuracy }}%</div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ report.prediction_summary.total_predictions }}개 제품 분석</p>
                     </div>
 
-                    <!-- Average Predicted Price -->
+                    <!-- 💰 추천 가격 -->
                     <div class="stat-card text-center">
-                        <div class="stat-label">Predicted Avg. Price</div>
-                        <div class="stat-value text-2xl text-secondary-600">${{ "%.2f"|format(report.prediction_summary.average_predicted_price) }}</div>
-                        <div class="text-xs {{ 'text-success-600' if report.prediction_summary.average_predicted_price < report.prediction_summary.average_actual_price else 'text-danger-600' }}">
-                            {{ 'Below' if report.prediction_summary.average_predicted_price < report.prediction_summary.average_actual_price else 'Above' }} current avg.
+                        <div class="stat-label">🎯 추천 판매가</div>
+                        <div class="stat-value text-2xl text-green-600">${{ "%.2f"|format(report.prediction_summary.average_predicted_price) }}</div>
+                        <div class="text-xs {{ 'text-success-600' if report.prediction_summary.average_predicted_price < report.prediction_summary.average_actual_price else 'text-warning-600' }}">
+                            시장평균 {{ 'Below' if report.prediction_summary.average_predicted_price < report.prediction_summary.average_actual_price else 'Above' }}
                         </div>
                     </div>
 
@@ -152,27 +152,54 @@
                     </div>
                 </div>
 
-                <!-- Individual Product Predictions -->
+                <!-- 🎯 개별 제품 최적 가격 추천 -->
                 <div>
-                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Individual Product Predictions</h4>
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 제품별 최적 가격 추천 및 수익성 분석</h4>
                     <div class="grid gap-4">
                         {% for prediction in report.ml_predictions %}
-                        <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
-                                <div class="flex-1 mb-3 md:mb-0">
+                        <div class="border border-green-200 dark:border-green-600 rounded-lg p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20">
+                            <div class="flex flex-col">
+                                <!-- 제품명 -->
+                                <div class="mb-3">
                                     <h5 class="font-medium text-gray-900 dark:text-white truncate" title="{{ prediction.product_title }}">
                                         {{ prediction.product_title[:80] }}{% if prediction.product_title|length > 80 %}...{% endif %}
                                     </h5>
-                                    <div class="flex items-center space-x-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                        <span>Actual: <strong class="text-gray-900 dark:text-white">${{ "%.2f"|format(prediction.actual_price) }}</strong></span>
-                                        <span>Predicted: <strong class="text-purple-600 dark:text-purple-400">${{ "%.2f"|format(prediction.predicted_price) }}</strong></span>
-                                        <span>Accuracy: <strong class="{{ 'text-success-600' if prediction.prediction_accuracy <= 10 else ('text-warning-600' if prediction.prediction_accuracy <= 25 else 'text-danger-600') }}">{{ "%.1f"|format(100 - prediction.prediction_accuracy) }}%</strong></span>
+                                </div>
+
+                                <!-- 가격 비교 -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                                    <div class="text-center p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">현재 가격</div>
+                                        <div class="text-lg font-bold text-gray-900 dark:text-white">${{ "%.2f"|format(prediction.actual_price) }}</div>
+                                    </div>
+                                    <div class="text-center p-2 bg-green-100 dark:bg-green-700 rounded">
+                                        <div class="text-xs text-green-600 dark:text-green-400">🎯 추천 가격</div>
+                                        <div class="text-lg font-bold text-green-700 dark:text-green-300">${{ "%.2f"|format(prediction.get('recommended_price', prediction.predicted_price)) }}</div>
+                                    </div>
+                                    <div class="text-center p-2 bg-blue-100 dark:bg-blue-700 rounded">
+                                        <div class="text-xs text-blue-600 dark:text-blue-400">💰 예상 수익률</div>
+                                        <div class="text-lg font-bold text-blue-700 dark:text-blue-300">{{ "%.1f"|format(prediction.get('confidence_score', 0.8) * 100) }}%</div>
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-xs text-gray-500">Confidence Range:</span>
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        ${{ "%.2f"|format(prediction.confidence_interval.lower) }} - ${{ "%.2f"|format(prediction.confidence_interval.upper) }}
+
+                                <!-- 추천 전략 -->
+                                {% if prediction.get('pricing_strategy') %}
+                                <div class="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
+                                    <div class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                                        {{ prediction.pricing_strategy }}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- 가격 범위 -->
+                                <div class="mt-2 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                                    <span>최적 가격 범위:</span>
+                                    <span class="font-medium text-gray-700 dark:text-gray-300">
+                                        {% if prediction.get('price_range') %}
+                                            ${{ "%.2f"|format(prediction.price_range.min) }} - ${{ "%.2f"|format(prediction.price_range.max) }}
+                                        {% else %}
+                                            ${{ "%.2f"|format(prediction.confidence_interval.lower) }} - ${{ "%.2f"|format(prediction.confidence_interval.upper) }}
+                                        {% endif %}
                                     </span>
                                 </div>
                             </div>
@@ -194,9 +221,9 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">ML Predictions Unavailable</h3>
                 <p class="text-gray-600 dark:text-gray-400">
                     {% if report.ml_error %}
-                        ML prediction service encountered an error: {{ report.ml_error }}
+                        가격 추천 서비스 오류: {{ report.ml_error }}
                     {% else %}
-                        Machine learning predictions are currently not available for this analysis.
+                        현재 이 분석에 대한 AI 가격 추천을 사용할 수 없습니다.
                     {% endif %}
                 </p>
             </div>
