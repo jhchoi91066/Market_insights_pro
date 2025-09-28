@@ -526,7 +526,7 @@ class MLServingService:
                     'profit_margin': round(15.0 + (predicted_price % 10) * 2, 1),  # 15-35% 범위
                     'roi_estimate': round(12.0 + (predicted_price % 8) * 1.5, 1)   # 12-24% 범위
                 },
-                pricing_strategy='배치 처리 기본 전략',
+                pricing_strategy='Batch processing default strategy',
                 confidence_score=0.75
             )
 
@@ -693,19 +693,19 @@ class MLServingService:
 
         # 전략 결정 로직
         if saturation_level == "high" and price_vs_market < 0.95:
-            strategy = f"🚀 시장 참입 전략: 경쟁자 {competitor_count}개, {round((1-price_vs_market)*100, 1)}% 저가로 시장 진입"
+            strategy = f"🚀 Market Entry Strategy: {competitor_count} competitors, {round((1-price_vs_market)*100, 1)} percent below market price for entry"
             confidence = 0.85
         elif saturation_level == "low" and price_vs_market > 1.05:
-            strategy = f"👑 프리미엄 전략: 비어있는 시장에서 {round((price_vs_market-1)*100, 1)}% 프리미엄으로 마진 최대화"
+            strategy = f"👑 Premium Strategy: Maximize margins with {round((price_vs_market-1)*100, 1)} percent premium in uncrowded market"
             confidence = 0.9
         elif profit_potential > market_avg * 50:
-            strategy = f"💰 수익 최적화 전략: 월 예상 순이익 ${profit_potential:.0f}, ROI {best_profit_scenario['roi_percentage']:.1f}%"
+            strategy = f"💰 Profit Optimization Strategy: Expected monthly profit ${profit_potential:.0f}, ROI {best_profit_scenario['roi_percentage']:.1f} percent"
             confidence = 0.88
         elif request.rating >= 4.3 and request.review_count >= 200:
-            strategy = f"⭐ 품질 차별화 전략: 평점 {request.rating}⭐, 리뷰 {request.review_count}개 기반 신뢰도 어필"
+            strategy = f"⭐ Quality Differentiation Strategy: {request.rating}⭐ rating, {request.review_count} reviews for trust appeal"
             confidence = 0.92
         else:
-            strategy = f"⚖️ 균형 전략: 시장 평균 근사, 월 예상 매출 ${best_profit_scenario['monthly_revenue']:.0f}"
+            strategy = f"⚖️ Balanced Strategy: Near market average, expected monthly revenue ${best_profit_scenario['monthly_revenue']:.0f}"
             confidence = 0.82
 
         return {
@@ -724,10 +724,10 @@ class MLServingService:
         }
 
     def _generate_dummy_price_recommendation(self, request: PricePredictionRequest, start_time: datetime) -> PricePredictionResponse:
-        """실제 모델이 없을 때 더미 가격 추천 생성"""
+        """Generate dummy price recommendation when no actual model is available"""
         import random
 
-        # 카테고리별 기본 가격 범위 (실제 시장 데이터 기반 추정)
+        # Base price ranges by category (estimated from actual market data)
         category_price_ranges = {
             "컴퓨터/IT": (20, 500),
             "가전제품": (50, 1000),
@@ -739,26 +739,26 @@ class MLServingService:
             "식품": (3, 80),
         }
 
-        # 기본 가격 범위 (카테고리가 없는 경우)
+        # Default price range (when category is not found)
         min_price, max_price = category_price_ranges.get(request.category, (10, 200))
 
-        # 평점과 리뷰 수를 고려한 가격 조정
-        rating_multiplier = 1 + (request.rating - 3.5) * 0.1  # 평점이 높을수록 더 비쌈
-        review_multiplier = 1 + min(request.review_count / 1000, 0.3)  # 리뷰가 많을수록 더 비쌈
+        # Price adjustment based on rating and review count
+        rating_multiplier = 1 + (request.rating - 3.5) * 0.1  # Higher rating = higher price
+        review_multiplier = 1 + min(request.review_count / 1000, 0.3)  # More reviews = higher price
 
-        # 브랜드 프리미엄 (잘 알려진 브랜드일 경우)
+        # Brand premium (for well-known brands)
         premium_brands = ["Apple", "Samsung", "LG", "Nike", "Adidas", "Sony"]
         brand_multiplier = 1.2 if any(brand.lower() in request.brand.lower() for brand in premium_brands) else 1.0
 
-        # 검색 키워드 기반 조정
-        expensive_keywords = ["프리미엄", "럭셔리", "프로", "고급", "professional"]
+        # Search keyword based adjustment
+        expensive_keywords = ["premium", "luxury", "pro", "professional", "deluxe"]
         keyword_multiplier = 1.3 if any(keyword in request.search_keyword.lower() for keyword in expensive_keywords) else 1.0
 
-        # 최종 가격 계산 (더미 버전)
+        # Final price calculation (dummy version)
         base_price = random.uniform(min_price, max_price)
         predicted_price = base_price * rating_multiplier * review_multiplier * brand_multiplier * keyword_multiplier
 
-        # 🎯 더미 최적 가격 추천 로직 전개
+        # 🎯 Dummy optimal price recommendation logic
         recommendation_analysis = self._analyze_optimal_pricing(
             base_price=predicted_price,
             request=request

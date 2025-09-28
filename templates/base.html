@@ -7,6 +7,8 @@
     
     <!-- Tailwind CSS -->
     <link href="/static/css/output.css" rel="stylesheet">
+    <!-- Fallback CDN Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,6 +27,256 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #f9fafb !important;
+            color: #1f2937 !important;
+            transition: background-color 0.3s ease, color 0.3s ease !important;
+        }
+
+        .dark body {
+            background-color: #111827 !important;
+            color: #f3f4f6 !important;
+        }
+
+        /* Navigation styles with alpha */
+        .bg-white\/80 {
+            background-color: rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .dark .bg-white\/80 {
+            background-color: rgba(31, 41, 55, 0.8) !important;
+        }
+
+        .bg-gray-800\/80 {
+            background-color: rgba(31, 41, 55, 0.8) !important;
+        }
+
+        .dark .bg-gray-800\/80 {
+            background-color: rgba(31, 41, 55, 0.8) !important;
+        }
+
+        /* Dark mode navigation */
+        .dark nav {
+            background-color: rgba(31, 41, 55, 0.8) !important;
+        }
+
+        /* Dark mode main content */
+        .dark main {
+            background-color: #111827 !important;
+        }
+
+        /* Dark mode footer */
+        .dark footer {
+            background-color: #1f2937 !important;
+            border-color: #374151 !important;
+        }
+
+        /* Ensure Tailwind classes work */
+        .test-visible {
+            background-color: #ef4444 !important;
+            color: white !important;
+            padding: 1rem !important;
+        }
+
+        /* Force basic styling with dark mode support */
+        .container {
+            max-width: 1200px !important;
+            margin: 0 auto !important;
+            padding: 0 1rem !important;
+        }
+
+        .bg-white {
+            background-color: #ffffff !important;
+        }
+
+        .dark .bg-white {
+            background-color: #1f2937 !important;
+        }
+
+        .bg-gray-50 {
+            background-color: #f9fafb !important;
+        }
+
+        .dark .bg-gray-50 {
+            background-color: #111827 !important;
+        }
+
+        .bg-gray-800 {
+            background-color: #1f2937 !important;
+        }
+
+        .dark .bg-gray-800 {
+            background-color: #1f2937 !important;
+        }
+
+        .shadow-lg {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .dark .shadow-lg {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        .rounded-lg {
+            border-radius: 0.5rem !important;
+        }
+
+        .p-6 {
+            padding: 1.5rem !important;
+        }
+
+        .mb-8 {
+            margin-bottom: 2rem !important;
+        }
+
+        .grid {
+            display: grid !important;
+        }
+
+        .gap-6 {
+            gap: 1.5rem !important;
+        }
+
+        .text-3xl {
+            font-size: 1.875rem !important;
+            line-height: 2.25rem !important;
+        }
+
+        .font-bold {
+            font-weight: 700 !important;
+        }
+
+        .text-gray-900 {
+            color: #111827 !important;
+        }
+
+        .dark .text-gray-900 {
+            color: #f9fafb !important;
+        }
+
+        .text-white {
+            color: #ffffff !important;
+        }
+
+        .dark .text-white {
+            color: #ffffff !important;
+        }
+
+        .text-gray-600 {
+            color: #4b5563 !important;
+        }
+
+        .dark .text-gray-600 {
+            color: #9ca3af !important;
+        }
+
+        .text-gray-400 {
+            color: #9ca3af !important;
+        }
+
+        .dark .text-gray-400 {
+            color: #6b7280 !important;
+        }
+
+        .text-gray-500 {
+            color: #6b7280 !important;
+        }
+
+        .dark .text-gray-500 {
+            color: #9ca3af !important;
+        }
+
+        .text-gray-800 {
+            color: #1f2937 !important;
+        }
+
+        .dark .text-gray-800 {
+            color: #f9fafb !important;
+        }
+
+        .text-gray-300 {
+            color: #d1d5db !important;
+        }
+
+        .dark .text-gray-300 {
+            color: #d1d5db !important;
+        }
+
+        .text-gray-200 {
+            color: #e5e7eb !important;
+        }
+
+        .dark .text-gray-200 {
+            color: #e5e7eb !important;
+        }
+
+        .bg-gray-200 {
+            background-color: #e5e7eb !important;
+        }
+
+        .dark .bg-gray-200 {
+            background-color: #374151 !important;
+        }
+
+        .bg-gray-700 {
+            background-color: #374151 !important;
+        }
+
+        .dark .bg-gray-700 {
+            background-color: #4b5563 !important;
+        }
+
+        .bg-gray-100 {
+            background-color: #f3f4f6 !important;
+        }
+
+        .dark .bg-gray-100 {
+            background-color: #374151 !important;
+        }
+
+        .border-gray-200 {
+            border-color: #e5e7eb !important;
+        }
+
+        .dark .border-gray-200 {
+            border-color: #374151 !important;
+        }
+
+        .border-gray-700 {
+            border-color: #374151 !important;
+        }
+
+        .dark .border-gray-700 {
+            border-color: #4b5563 !important;
+        }
+
+        /* Tooltip 용어 스타일 */
+        .tooltip-term {
+            cursor: help !important;
+            color: #3b82f6 !important;
+            border-bottom: 1px dotted #3b82f6 !important;
+            text-decoration: none !important;
+            transition: color 0.2s ease !important;
+        }
+
+        .tooltip-term:hover {
+            color: #1d4ed8 !important;
+            border-bottom-color: #1d4ed8 !important;
+        }
+
+        .dark .tooltip-term {
+            color: #60a5fa !important;
+            border-bottom-color: #60a5fa !important;
+        }
+
+        .dark .tooltip-term:hover {
+            color: #93c5fd !important;
+            border-bottom-color: #93c5fd !important;
+        }
+
+        @media (min-width: 768px) {
+            .md\\:grid-cols-4 {
+                grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            }
         }
     </style>
     
@@ -48,10 +300,6 @@
                         <div class="flex items-center space-x-1">
                             <a href="/" class="text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-primary-600 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
                                 Dashboard
-                            </a>
-                            <a href="/monitoring" class="text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-primary-600 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1">
-                                <span>🔥</span>
-                                <span>실시간 모니터링</span>
                             </a>
                         </div>
                     </div>

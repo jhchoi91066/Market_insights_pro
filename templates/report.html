@@ -42,13 +42,13 @@
             <div class="stat-card text-center col-span-1 lg:col-span-2">
                 <div class="mb-4">
                     <div class="stat-label">Market Entry Barrier Score</div>
-                    <div class="stat-value text-4xl lg:text-5xl {{ 'text-danger-600' if report.difficulty_score >= 7 else ('text-warning-600' if report.difficulty_score >= 4 else 'text-success-600') }}">
-                        {{ report.difficulty_score }}<span class="text-2xl text-gray-500">/10</span>
+                    <div class="stat-value text-4xl lg:text-5xl {{ 'text-danger-600' if (report.difficulty_score|default(0)) >= 7 else ('text-warning-600' if (report.difficulty_score|default(0)) >= 4 else 'text-success-600') }}">
+                        {{ report.difficulty_score|default(0) }}<span class="text-2xl text-gray-500">/10</span>
                     </div>
                 </div>
                 <div class="progress mb-3">
-                    <div class="progress-bar {{ 'danger' if report.difficulty_score >= 7 else ('warning' if report.difficulty_score >= 4 else 'success') }}" 
-                         style="width: {{ report.difficulty_score * 10 }}%"></div>
+                    <div class="progress-bar {{ 'danger' if (report.difficulty_score|default(0)) >= 7 else ('warning' if (report.difficulty_score|default(0)) >= 4 else 'success') }}"
+                         style="width: {{ (report.difficulty_score|default(0)) * 10 }}%"></div>
                 </div>
                 <p class="text-sm text-gray-600 dark:text-gray-400">Higher scores indicate fiercer competition</p>
             </div>
@@ -56,10 +56,10 @@
             <!-- Competition Count -->
             <div class="stat-card">
                 <div class="stat-label">Competing Products</div>
-                <div class="stat-value text-primary-600">{{ report.competitor_count }}</div>
-                {% if report.prime_count %}
+                <div class="stat-value text-primary-600">{{ report.competitor_count|default(0) }}</div>
+                {% if report.prime_count|default(0) > 0 %}
                 <div class="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                    <span class="badge badge-primary">{{ report.prime_count }} Prime ({{ report.prime_percentage }}%)</span>
+                    <span class="badge badge-primary">{{ report.prime_count|default(0) }} Prime ({{ report.prime_percentage|default(0) }} percent)</span>
                 </div>
                 {% endif %}
             </div>
@@ -67,7 +67,7 @@
             <!-- Market Saturation -->
             <div class="stat-card">
                 <div class="stat-label">Market Saturation</div>
-                <div class="stat-value text-secondary-600">{{ report.market_saturation_percentage }}%</div>
+                <div class="stat-value text-secondary-600">{{ report.market_saturation_percentage|default(0) }} percent</div>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Top 10 market share</p>
             </div>
         </div>
@@ -113,7 +113,7 @@
 
                     <div class="stat-card text-center">
                         <div class="stat-label">💡 평균 기회 점수</div>
-                        <div class="stat-value text-2xl text-purple-600">{{ "%.1f"|format(report.trending_opportunities.analysis_summary.avg_opportunity_score) }}</div>
+                        <div class="stat-value text-2xl text-purple-600">{{ "{:.1f}".format(report.trending_opportunities.analysis_summary.avg_opportunity_score) }}</div>
                         <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">총 {{ report.trending_opportunities.total_analyzed }}개 분석</div>
                     </div>
 
@@ -142,7 +142,7 @@
                                                      else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
                                             {{ opportunity.trend_direction.title() }}
                                             {% if opportunity.trend_change_percent != 0 %}
-                                                ({{ "+%.1f" if opportunity.trend_change_percent > 0 else "%.1f" }}%)
+                                                ({{ "+{:.1f}" if opportunity.trend_change_percent > 0 else "{:.1f}" }} percent)
                                             {% endif %}
                                         </span>
                                     </div>
@@ -167,7 +167,7 @@
                                         </div>
                                         <div>
                                             <span class="font-medium text-gray-700 dark:text-gray-300">트렌드점수:</span>
-                                            <span class="ml-1 font-medium text-blue-600 dark:text-blue-400">{{ "%.1f"|format(opportunity.trend_score) }}/100</span>
+                                            <span class="ml-1 font-medium text-blue-600 dark:text-blue-400">{{ "{:.1f}".format(opportunity.trend_score) }}/100</span>
                                         </div>
                                     </div>
                                 </div>
@@ -177,7 +177,7 @@
                                         <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">기회 점수</div>
                                         <div class="text-2xl font-bold
                                                     {{ 'text-green-600' if opportunity.opportunity_score >= 75 else ('text-yellow-600' if opportunity.opportunity_score >= 50 else 'text-red-600') }}">
-                                            {{ "%.1f"|format(opportunity.opportunity_score) }}
+                                            {{ "{:.1f}".format(opportunity.opportunity_score) }}
                                         </div>
                                         <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
                                             <div class="h-2 rounded-full transition-all duration-500
@@ -217,7 +217,7 @@
                     <div class="stat-card text-center">
                         <div class="stat-label">🚀 고성장 카테고리</div>
                         <div class="stat-value text-3xl text-success-600">{{ report.category_growth_analysis.analysis_summary.high_growth_count }}</div>
-                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">성장률 15% 이상</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">성장률 15 percent 이상</div>
                     </div>
 
                     <div class="stat-card text-center">
@@ -228,7 +228,7 @@
 
                     <div class="stat-card text-center">
                         <div class="stat-label">💡 평균 성장률</div>
-                        <div class="stat-value text-2xl text-green-600">{{ "%.1f"|format(report.category_growth_analysis.analysis_summary.avg_growth_rate) }}%</div>
+                        <div class="stat-value text-2xl text-green-600">{{ "{:.1f}".format(report.category_growth_analysis.analysis_summary.avg_growth_rate) }} percent</div>
                         <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ report.category_growth_analysis.total_categories_analyzed }}개 분석</div>
                     </div>
 
@@ -287,7 +287,7 @@
                                                          {{ 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if category.market_size_score >= 80
                                                          else ('bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' if category.market_size_score >= 50
                                                          else 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200') }}">
-                                                {{ "%.0f"|format(category.market_size_score) }}점
+                                                {{ "{:.0f}".format(category.market_size_score) }}점
                                             </span>
                                         </div>
                                         <div>
@@ -319,7 +319,7 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">성장률</div>
                                     <div class="text-2xl font-bold
                                                 {{ 'text-green-600' if category.growth_rate >= 20 else ('text-blue-600' if category.growth_rate >= 10 else 'text-yellow-600') }}">
-                                        {{ "+%.1f"|format(category.growth_rate) if category.growth_rate > 0 else "%.1f"|format(category.growth_rate) }}%
+                                        {{ "+{:.1f}".format(category.growth_rate) if category.growth_rate > 0 else "{:.1f}".format(category.growth_rate) }} percent
                                     </div>
                                     <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
                                         <div class="h-2 rounded-full transition-all duration-500
@@ -359,7 +359,7 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                                         <div>
                                             <span class="font-medium text-gray-700 dark:text-gray-300">성장률:</span>
-                                            <span class="ml-1 font-medium text-green-600 dark:text-green-400">{{ "+%.1f"|format(category.growth_rate) if category.growth_rate > 0 else "%.1f"|format(category.growth_rate) }}%</span>
+                                            <span class="ml-1 font-medium text-green-600 dark:text-green-400">{{ "+{:.1f}".format(category.growth_rate) if category.growth_rate > 0 else "{:.1f}".format(category.growth_rate) }} percent</span>
                                         </div>
                                         <div>
                                             <span class="font-medium text-gray-700 dark:text-gray-300">트렌드:</span>
@@ -372,7 +372,7 @@
                                         </div>
                                         <div>
                                             <span class="font-medium text-gray-700 dark:text-gray-300">시장규모:</span>
-                                            <span class="ml-1">{{ "%.0f"|format(category.market_size_score) }}점</span>
+                                            <span class="ml-1">{{ "{:.0f}".format(category.market_size_score) }}점</span>
                                         </div>
                                     </div>
                                 </div>
@@ -381,7 +381,7 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">추천도</div>
                                     <div class="text-2xl font-bold
                                                 {{ 'text-green-600' if category.entry_recommendation_score >= 80 else ('text-blue-600' if category.entry_recommendation_score >= 60 else 'text-yellow-600') }}">
-                                        {{ "%.0f"|format(category.entry_recommendation_score) }}
+                                        {{ "{:.0f}".format(category.entry_recommendation_score) }}
                                     </div>
                                     <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
                                         <div class="h-2 rounded-full transition-all duration-500
@@ -426,7 +426,7 @@
                     <div class="stat-card text-center">
                         <div class="stat-label">📊 시장 집중도</div>
                         <div class="stat-value text-2xl text-blue-600">{{ report.brand_gap_analysis.analysis_summary.market_concentration }}</div>
-                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">상위3개 {{ "%.1f"|format(report.brand_gap_analysis.analysis_summary.top_3_market_share) }}%</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">상위3개 {{ "{:.1f}".format(report.brand_gap_analysis.analysis_summary.top_3_market_share) }} percent</div>
                     </div>
 
                     <div class="stat-card text-center">
@@ -459,7 +459,7 @@
                         </div>
                         <div class="text-center">
                             <div class="text-sm text-gray-600 dark:text-gray-400">HHI 지수</div>
-                            <div class="text-lg font-bold text-blue-600">{{ "%.0f"|format(report.brand_gap_analysis.brand_competition_analysis.hhi_score) }}</div>
+                            <div class="text-lg font-bold text-blue-600">{{ "{:.0f}".format(report.brand_gap_analysis.brand_competition_analysis.hhi_score) }}</div>
                             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ report.brand_gap_analysis.brand_competition_analysis.market_concentration }} 집중</div>
                         </div>
                         <div class="text-center">
@@ -506,7 +506,7 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm mb-3">
                                         <div>
                                             <span class="font-medium text-gray-700 dark:text-gray-300">시장점유율:</span>
-                                            <span class="ml-1 font-bold text-orange-600 dark:text-orange-400">{{ "%.1f"|format(brand.market_share) }}%</span>
+                                            <span class="ml-1 font-bold text-orange-600 dark:text-orange-400">{{ "{:.1f}".format(brand.market_share) }} percent</span>
                                         </div>
                                         <div>
                                             <span class="font-medium text-gray-700 dark:text-gray-300">상품수:</span>
@@ -522,7 +522,7 @@
                                                          {{ 'text-green-600 dark:text-green-400' if brand.brand_strength >= 80
                                                          else ('text-yellow-600 dark:text-yellow-400' if brand.brand_strength >= 60
                                                          else 'text-red-600 dark:text-red-400') }}">
-                                                {{ "%.1f"|format(brand.brand_strength) }}점
+                                                {{ "{:.1f}".format(brand.brand_strength) }}점
                                             </span>
                                         </div>
                                     </div>
@@ -536,7 +536,7 @@
 
                                 <div class="mt-4 lg:mt-0 lg:ml-6 flex-shrink-0 text-center">
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">점유율</div>
-                                    <div class="text-2xl font-bold text-orange-600">{{ "%.1f"|format(brand.market_share) }}%</div>
+                                    <div class="text-2xl font-bold text-orange-600">{{ "{:.1f}".format(brand.market_share) }} percent</div>
                                     <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-1">
                                         <div class="h-3 rounded-full transition-all duration-500 bg-orange-500"
                                              style="width: {{ min(100, max(5, brand.market_share * 2)) }}%"></div>
@@ -587,7 +587,7 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">기회 점수</div>
                                     <div class="text-2xl font-bold
                                                 {{ 'text-green-600' if gap.opportunity_score >= 80 else ('text-yellow-600' if gap.opportunity_score >= 70 else 'text-blue-600') }}">
-                                        {{ "%.0f"|format(gap.opportunity_score) }}
+                                        {{ "{:.0f}".format(gap.opportunity_score) }}
                                     </div>
                                     <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-1">
                                         <div class="h-3 rounded-full transition-all duration-500
@@ -633,44 +633,51 @@
                     <!-- 🚀 시장 기회 -->
                     <div class="stat-card text-center">
                         <div class="stat-label">🚀 시장 기회도</div>
-                        <div class="stat-value text-3xl {{ 'text-success-600' if report.prediction_summary.market_opportunity_score >= 70 else ('text-warning-600' if report.prediction_summary.market_opportunity_score >= 40 else 'text-danger-600') }}">
-                            {{ report.prediction_summary.market_opportunity_score }}<span class="text-lg text-gray-500">/100</span>
+                        {% set opportunity_score = report.prediction_summary.market_opportunity_score|default(0) if report.prediction_summary else 0 %}
+                        <div class="stat-value text-3xl {{ 'text-success-600' if opportunity_score >= 70 else ('text-warning-600' if opportunity_score >= 40 else 'text-danger-600') }}">
+                            {{ opportunity_score }}<span class="text-lg text-gray-500">/100</span>
                         </div>
                         <div class="progress mt-2">
-                            <div class="progress-bar {{ 'success' if report.prediction_summary.market_opportunity_score >= 70 else ('warning' if report.prediction_summary.market_opportunity_score >= 40 else 'danger') }}"
-                                 style="width: {{ report.prediction_summary.market_opportunity_score }}%"></div>
+                            <div class="progress-bar {{ 'success' if opportunity_score >= 70 else ('warning' if opportunity_score >= 40 else 'danger') }}"
+                                 style="width: {{ opportunity_score }}%"></div>
                         </div>
                     </div>
 
                     <!-- 🏆 예상 수익성 -->
                     <div class="stat-card text-center">
                         <div class="stat-label">💰 수익성 점수</div>
-                        <div class="stat-value text-2xl text-blue-600">{{ report.prediction_summary.prediction_accuracy }}%</div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ report.prediction_summary.total_predictions }}개 제품 분석</p>
+                        {% set accuracy = report.prediction_summary.prediction_accuracy|default(0) if report.prediction_summary else 0 %}
+                        {% set total_predictions = report.prediction_summary.total_predictions|default(0) if report.prediction_summary else 0 %}
+                        <div class="stat-value text-2xl text-blue-600">{{ accuracy }} percent</div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ total_predictions }}개 제품 분석</p>
                     </div>
 
                     <!-- 💰 추천 가격 -->
                     <div class="stat-card text-center">
                         <div class="stat-label">🎯 추천 판매가</div>
-                        <div class="stat-value text-2xl text-green-600">${{ "%.2f"|format(report.prediction_summary.average_predicted_price) }}</div>
-                        <div class="text-xs {{ 'text-success-600' if report.prediction_summary.average_predicted_price < report.prediction_summary.average_actual_price else 'text-warning-600' }}">
-                            시장평균 {{ 'Below' if report.prediction_summary.average_predicted_price < report.prediction_summary.average_actual_price else 'Above' }}
+                        {% set avg_predicted = report.prediction_summary.average_predicted_price|default(0) if report.prediction_summary else 0 %}
+                        {% set avg_actual = report.prediction_summary.average_actual_price|default(0) if report.prediction_summary else 0 %}
+                        <div class="stat-value text-2xl text-green-600">${{ "{:.2f}".format(avg_predicted) }}</div>
+                        <div class="text-xs {{ 'text-success-600' if avg_predicted < avg_actual else 'text-warning-600' }}">
+                            시장평균 {{ 'Below' if avg_predicted < avg_actual else 'Above' }}
                         </div>
                     </div>
 
                     <!-- Market Attractiveness -->
                     <div class="stat-card text-center">
                         <div class="stat-label">Market Trend</div>
+                        {% set market_attr = report.recommendation.market_attractiveness|default('unknown') if report.recommendation else 'unknown' %}
+                        {% set price_trend = report.recommendation.price_trend|default('stable') if report.recommendation else 'stable' %}
                         <div class="stat-value text-lg">
                             <span class="px-3 py-1 rounded-full text-sm font-medium
-                                {{ 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200' if report.recommendation.market_attractiveness == 'high'
-                                else ('bg-warning-100 text-warning-800 dark:bg-warning-900 dark:text-warning-200' if report.recommendation.market_attractiveness == 'medium'
+                                {{ 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200' if market_attr == 'high'
+                                else ('bg-warning-100 text-warning-800 dark:bg-warning-900 dark:text-warning-200' if market_attr == 'medium'
                                 else 'bg-danger-100 text-danger-800 dark:bg-danger-900 dark:text-danger-200') }}">
-                                {{ report.recommendation.market_attractiveness.title() }}
+                                {{ market_attr.title() }}
                             </span>
                         </div>
                         <div class="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                            Price trend: {{ report.recommendation.price_trend.title() }}
+                            Price trend: {{ price_trend.title() }}
                         </div>
                     </div>
                 </div>
@@ -687,14 +694,16 @@
                 <!-- 🎯 개별 제품 최적 가격 추천 -->
                 <div>
                     <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 제품별 최적 가격 추천 및 수익성 분석</h4>
+                    {% if report.ml_predictions and report.ml_predictions|length > 0 %}
                     <div class="grid gap-4">
                         {% for prediction in report.ml_predictions %}
                         <div class="border border-green-200 dark:border-green-600 rounded-lg p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20">
                             <div class="flex flex-col">
                                 <!-- 제품명 -->
                                 <div class="mb-3">
-                                    <h5 class="font-medium text-gray-900 dark:text-white truncate" title="{{ prediction.product_title }}">
-                                        {{ prediction.product_title[:80] }}{% if prediction.product_title|length > 80 %}...{% endif %}
+                                    <h5 class="font-medium text-gray-900 dark:text-white truncate" title="{{ prediction.product_title|default('상품명 없음') }}">
+                                        {% set title = prediction.product_title|default('상품명 없음') %}
+                                        {{ title[:80] }}{% if title|length > 80 %}...{% endif %}
                                     </h5>
                                 </div>
 
@@ -702,16 +711,18 @@
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                                     <div class="text-center p-2 bg-gray-100 dark:bg-gray-700 rounded">
                                         <div class="text-xs text-gray-500 dark:text-gray-400">현재 가격</div>
-                                        <div class="text-lg font-bold text-gray-900 dark:text-white">${{ "%.2f"|format(prediction.actual_price) }}</div>
+                                        <div class="text-lg font-bold text-gray-900 dark:text-white">${{ "{:.2f}".format(prediction.actual_price|default(0)) }}</div>
                                     </div>
                                     <div class="text-center p-2 bg-green-100 dark:bg-green-700 rounded">
                                         <div class="text-xs text-green-600 dark:text-green-400">🎯 추천 가격</div>
-                                        <div class="text-lg font-bold text-green-700 dark:text-green-300">${{ "%.2f"|format(prediction.get('recommended_price', prediction.predicted_price)) }}</div>
+                                        {% set rec_price = prediction.get('recommended_price', prediction.get('predicted_price', 0)) %}
+                                        <div class="text-lg font-bold text-green-700 dark:text-green-300">${{ "{:.2f}".format(rec_price|default(0)) }}</div>
                                     </div>
                                     <div class="text-center p-2 bg-blue-100 dark:bg-blue-700 rounded">
                                         <div class="text-xs text-blue-600 dark:text-blue-400">💰 예상 수익률</div>
-                                        {% set profit_margin = prediction.get('profitability_analysis', {}).get('best_scenario', {}).get('profit_margin', prediction.get('profitability_analysis', {}).get('profit_margin', 15.0)) %}
-                                        <div class="text-lg font-bold text-blue-700 dark:text-blue-300">{{ "%.1f"|format(profit_margin * 100 if profit_margin < 1 else profit_margin) }}%</div>
+                                        {% set profit_analysis = prediction.get('profitability_analysis', {}) %}
+                                        {% set profit_margin = profit_analysis.get('best_scenario', {}).get('profit_margin', profit_analysis.get('profit_margin', 15.0)) %}
+                                        <div class="text-lg font-bold text-blue-700 dark:text-blue-300">{{ "{:.1f}".format((profit_margin * 100) if profit_margin < 1 else profit_margin) }} percent</div>
                                     </div>
                                 </div>
 
@@ -729,9 +740,9 @@
                                     <span>최적 가격 범위:</span>
                                     <span class="font-medium text-gray-700 dark:text-gray-300">
                                         {% if prediction.get('price_range') %}
-                                            ${{ "%.2f"|format(prediction.price_range.min) }} - ${{ "%.2f"|format(prediction.price_range.max) }}
+                                            ${{ "{:.2f}".format(prediction.price_range.min) }} - ${{ "{:.2f}".format(prediction.price_range.max) }}
                                         {% else %}
-                                            ${{ "%.2f"|format(prediction.confidence_interval.lower) }} - ${{ "%.2f"|format(prediction.confidence_interval.upper) }}
+                                            ${{ "{:.2f}".format(prediction.confidence_interval.lower) }} - ${{ "{:.2f}".format(prediction.confidence_interval.upper) }}
                                         {% endif %}
                                     </span>
                                 </div>
@@ -739,6 +750,13 @@
                         </div>
                         {% endfor %}
                     </div>
+                    {% else %}
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div class="text-4xl mb-4">🤖</div>
+                        <p class="text-lg font-semibold mb-2">ML 예측 데이터가 없습니다</p>
+                        <p class="text-sm">AI 가격 예측 시스템에서 분석 가능한 상품 데이터를 찾지 못했습니다.</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -798,7 +816,7 @@
                             {{ report.channel_strategy_analysis.analysis_summary.dominant_channel.name }}
                         </div>
                         <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            {{ "%.1f"|format(report.channel_strategy_analysis.analysis_summary.dominant_channel.share) }}% 점유율
+                            {{ "{:.1f}".format(report.channel_strategy_analysis.analysis_summary.dominant_channel.share) }} percent 점유율
                         </div>
                     </div>
 
@@ -806,7 +824,7 @@
                     <div class="stat-card text-center">
                         <div class="stat-label">🔄 채널 다양성 지수</div>
                         <div class="stat-value text-2xl text-orange-600 dark:text-orange-400">
-                            {{ "%.2f"|format(report.channel_strategy_analysis.analysis_summary.channel_diversity) }}
+                            {{ "{:.2f}".format(report.channel_strategy_analysis.analysis_summary.channel_diversity) }}
                         </div>
                         <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Shannon Index</div>
                     </div>
@@ -852,7 +870,7 @@
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="font-semibold text-blue-600 dark:text-blue-400">{{ "%.1f"|format(channel.market_share) }}%</div>
+                                        <div class="font-semibold text-blue-600 dark:text-blue-400">{{ "{:.1f}".format(channel.market_share) }} percent</div>
                                         <div class="text-sm text-gray-600 dark:text-gray-400">{{ channel.product_count }}개 상품</div>
                                     </div>
                                 </div>
@@ -880,7 +898,7 @@
                                             {% else %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% endif %}">
                                             {{ competition.competition_level }}
                                         </span>
-                                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ "%.1f"|format(competition.competition_score) }}점</div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ "{:.1f}".format(competition.competition_score) }}점</div>
                                     </div>
                                 </div>
                                 {% endfor %}
@@ -905,7 +923,7 @@
                                             {% elif tier_name == 'premium' %}💎 프리미엄
                                             {% else %}👑 럭셔리{% endif %}
                                         </div>
-                                        <div class="font-semibold text-blue-600 dark:text-blue-400">{{ "%.1f"|format(tier_data.market_share) }}%</div>
+                                        <div class="font-semibold text-blue-600 dark:text-blue-400">{{ "{:.1f}".format(tier_data.market_share) }} percent</div>
                                     </div>
                                     <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
                                         {{ tier_data.price_range }}
@@ -936,7 +954,7 @@
                                 <div class="p-4 border-2 border-dashed border-orange-300 dark:border-orange-600 rounded-lg bg-orange-50 dark:bg-orange-900/20">
                                     <div class="flex items-center justify-between mb-2">
                                         <div class="font-medium text-orange-800 dark:text-orange-200">공백 구간 발견</div>
-                                        <div class="text-sm text-orange-600 dark:text-orange-400">기회 점수: {{ "%.0f"|format(gap.opportunity_score) }}</div>
+                                        <div class="text-sm text-orange-600 dark:text-orange-400">기회 점수: {{ "{:.0f}".format(gap.opportunity_score) }}</div>
                                     </div>
                                     <div class="text-sm text-orange-700 dark:text-orange-300">
                                         {{ "{:,}".format(gap.start_price) }}원 → {{ "{:,}".format(gap.end_price) }}원
@@ -980,14 +998,14 @@
                                     {% endif %}
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ "%.0f"|format(opportunity.opportunity_score) }}</div>
+                                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ "{:.0f}".format(opportunity.opportunity_score) }}</div>
                                     <div class="text-xs text-gray-600 dark:text-gray-400">기회점수</div>
                                 </div>
                             </div>
 
                             <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
                                 {% if opportunity.market_share is defined %}
-                                <div>시장 점유율: <span class="font-medium">{{ "%.1f"|format(opportunity.market_share) }}%</span></div>
+                                <div>시장 점유율: <span class="font-medium">{{ "{:.1f}".format(opportunity.market_share) }} percent</span></div>
                                 {% endif %}
                                 {% if opportunity.avg_price is defined %}
                                 <div>평균 가격: <span class="font-medium">{{ "{:,}".format(opportunity.avg_price|int) }}원</span></div>

@@ -125,15 +125,30 @@ class NaverScraperAdapter:
                 session.commit()
 
                 # 상품 데이터 저장
-                for product_data in products:
+                logger.info(f"상품 데이터 저장 시작: {len(products)}개 처리 예정")
+                for i, product_data in enumerate(products):
                     try:
+                        logger.debug(f"[{i+1}/{len(products)}] 상품 처리 중: {product_data.get('product_id', 'UNKNOWN_ID')}")
+
+                        # 데이터 검증
+                        required_fields = ['product_id', 'product_title', 'product_category', 'discounted_price']
+                        missing_fields = []
+                        for field in required_fields:
+                            if field not in product_data or product_data[field] is None:
+                                missing_fields.append(field)
+
+                        if missing_fields:
+                            logger.error(f"필수 필드 누락: {missing_fields} for product {product_data.get('product_id', 'UNKNOWN')}")
+                            self.metrics.errors_count += 1
+                            continue
+
                         # 중복 체크 (product_id 기준)
                         existing_product = session.query(Product).filter(
                             Product.product_id == product_data['product_id']
                         ).first()
 
                         if existing_product:
-                            logger.debug(f"중복 상품 건너뜀: {product_data['product_id']}")
+                            logger.info(f"중복 상품 건너뜀: {product_data['product_id']} (기존 ID: {existing_product.id})")
                             continue
 
                         # 새 상품 생성
@@ -141,33 +156,45 @@ class NaverScraperAdapter:
                             product_id=product_data['product_id'],
                             product_title=product_data['product_title'],
                             product_category=product_data['product_category'],
-                            discounted_price=product_data['discounted_price'],
-                            product_rating=product_data['product_rating'],
-                            total_reviews=product_data['total_reviews'],
-                            purchased_last_month=product_data['purchased_last_month'],
-                            brand=product_data['brand'],
-                            seller=product_data['seller'],
-                            is_prime=product_data['is_prime'],
-                            asin=product_data['asin'],
-                            product_url=product_data['product_url'],
-                            scraped_at=product_data['scraped_at'],
+                            discounted_price=float(product_data['discounted_price']) if product_data['discounted_price'] else 0.0,
+                            product_rating=float(product_data.get('product_rating', 0.0)) if product_data.get('product_rating') else 0.0,
+                            total_reviews=int(product_data.get('total_reviews', 0)) if product_data.get('total_reviews') else 0,
+                            purchased_last_month=int(product_data.get('purchased_last_month', 0)) if product_data.get('purchased_last_month') else 0,
+                            brand=product_data.get('brand', ''),
+                            seller=product_data.get('seller', ''),
+                            is_prime=bool(product_data.get('is_prime', False)),
+                            asin=product_data.get('asin', ''),
+                            product_url=product_data.get('product_url', ''),
+                            scraped_at=product_data.get('scraped_at') or datetime.now(),
                             data_source='naver_shopping_api'
                         )
 
                         session.add(product)
                         saved_count += 1
+                        logger.debug(f"상품 추가 성공: {product_data['product_id']}")
 
                     except Exception as e:
-                        logger.error(f"상품 저장 중 오류: {str(e)}")
+                        logger.error(f"상품 저장 중 오류 (상품 ID: {product_data.get('product_id', 'UNKNOWN')}): {str(e)}")
+                        logger.error(f"상품 데이터: {product_data}")
                         self.metrics.errors_count += 1
                         continue
+
+                logger.info(f"상품 저장 완료: {saved_count}개 상품이 세션에 추가됨")
 
                 # 스크래핑 세션 업데이트
                 scraping_session.products_saved = saved_count
                 scraping_session.session_status = 'completed'
                 scraping_session.completed_at = datetime.utcnow()
 
-                session.commit()
+                logger.info(f"데이터베이스 커밋 시작: {saved_count}개 상품")
+                try:
+                    session.commit()
+                    logger.info(f"✅ 데이터베이스 커밋 성공: {saved_count}개 상품 저장 완료")
+                except Exception as commit_error:
+                    logger.error(f"❌ 데이터베이스 커밋 실패: {str(commit_error)}")
+                    session.rollback()
+                    saved_count = 0  # 롤백 시 저장 수량 0으로 재설정
+                    raise commit_error
 
             # 메트릭 완료
             self.metrics.end_time = datetime.now()
@@ -180,7 +207,7 @@ class NaverScraperAdapter:
                 "products_found": len(products),
                 "products_saved": saved_count,
                 "errors": self.metrics.errors_count,
-                "success_rate": f"{self.metrics.success_rate:.1f}%",
+                "success_rate": f"{self.metrics.success_rate:.1f} percent",
                 "data_source": "naver_shopping_api"
             }
 

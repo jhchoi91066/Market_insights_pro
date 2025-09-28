@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Result: {{ report.keyword }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1>Debug Report for {{ report.keyword }}</h1>
+
+    <!-- Basic Info -->
+    <div class="mb-8">
+        <h2>Basic Information</h2>
+        <p>Keyword: {{ report.keyword }}</p>
+        <p>Difficulty Score: {{ report.difficulty_score|default(0) }}</p>
+    </div>
+
+    <!-- Test CSS width -->
+    <div class="mb-8">
+        <h2>Progress Bar Test</h2>
+        <div class="progress-bar" style="width: 50%">50 percent width</div>
+    </div>
+
+    <!-- Test trending opportunities -->
+    {% if report.trending_opportunities %}
+    <div class="mb-8">
+        <h2>Trending Opportunities Available</h2>
+        <p>Found trending opportunities section</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

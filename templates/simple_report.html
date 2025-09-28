@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Report</title>
+</head>
+<body>
+    <h1>Market Analysis Report</h1>
+    <p>Keyword: {{ report.keyword }}</p>
+    <p>Status: Working</p>
+    <p>This is a test template without any percent characters or complex formatting.</p>
+
+    {% if report.trending_opportunities %}
+    <h2>Trending Opportunities</h2>
+    <ul>
+    {% for opportunity in report.trending_opportunities.top_opportunities[:3] %}
+        <li>{{ opportunity.keyword }}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+</body>
+</html>

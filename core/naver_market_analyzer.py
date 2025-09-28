@@ -208,60 +208,71 @@ class NaverMarketAnalyzer:
                                   brand_diversity: int) -> float:
         """시장 진입 난이도 점수 계산 (0-10) - 개선된 로직"""
 
-        # 1. 경쟁 밀도 점수 (0-3.5) - 더 세밀한 구분
-        if competitor_count <= 15:
+        # 1. 경쟁 밀도 점수 (0-2.5) - 기준 완화
+        if competitor_count <= 10:
             competition_density = 0.5  # 매우 낮은 경쟁
-        elif competitor_count <= 25:
-            competition_density = 1.5  # 낮은 경쟁
-        elif competitor_count <= 40:
-            competition_density = 2.5  # 중간 경쟁
-        elif competitor_count <= 60:
-            competition_density = 3.0  # 높은 경쟁
+        elif competitor_count <= 20:
+            competition_density = 1.0  # 낮은 경쟁
+        elif competitor_count <= 35:
+            competition_density = 1.5  # 중간 경쟁
+        elif competitor_count <= 50:
+            competition_density = 2.0  # 높은 경쟁
         else:
-            competition_density = 3.5  # 매우 높은 경쟁
+            competition_density = 2.5  # 매우 높은 경쟁
 
-        # 2. 리뷰 경쟁 강도 (0-2.5) - 리뷰 수가 많을수록 진입장벽
+        # 2. 리뷰 경쟁 강도 (0-2.0) - 기준 완화
         avg_reviews = statistics.mean(reviews) if reviews else 100
-        if avg_reviews <= 50:
+        if avg_reviews <= 100:
             review_competition = 0.5
-        elif avg_reviews <= 200:
+        elif avg_reviews <= 300:
             review_competition = 1.0
-        elif avg_reviews <= 500:
+        elif avg_reviews <= 800:
             review_competition = 1.5
-        elif avg_reviews <= 1000:
-            review_competition = 2.0
         else:
-            review_competition = 2.5
+            review_competition = 2.0
 
-        # 3. 품질 표준 점수 (0-2.5) - 평점이 높을수록 진입 어려움
+        # 3. 품질 표준 점수 (0-2.0) - 기준 완화
         avg_rating = statistics.mean(ratings) if ratings else 3.5
         if avg_rating < 3.5:
-            quality_standard = 0.5  # 품질 개선 기회
+            quality_standard = 0.3  # 품질 개선 기회
         elif avg_rating < 4.0:
-            quality_standard = 1.0  # 보통 품질 기준
+            quality_standard = 0.8  # 보통 품질 기준
         elif avg_rating < 4.3:
-            quality_standard = 1.5  # 높은 품질 기준
+            quality_standard = 1.2  # 높은 품질 기준
         elif avg_rating < 4.5:
-            quality_standard = 2.0  # 매우 높은 품질 기준
+            quality_standard = 1.6  # 매우 높은 품질 기준
         else:
-            quality_standard = 2.5  # 극도로 높은 품질 기준
+            quality_standard = 2.0  # 극도로 높은 품질 기준
 
-        # 4. 브랜드 포화도 (0-1.5)
-        if brand_diversity <= 5:
-            brand_saturation = 0.5  # 브랜드 기회 존재
-        elif brand_diversity <= 10:
-            brand_saturation = 1.0  # 보통 브랜드 경쟁
+        # 4. 브랜드 포화도 (0-2.0) - 범위 확대
+        if brand_diversity <= 3:
+            brand_saturation = 0.3  # 매우 낮은 브랜드 경쟁
+        elif brand_diversity <= 6:
+            brand_saturation = 0.8  # 낮은 브랜드 경쟁
+        elif brand_diversity <= 12:
+            brand_saturation = 1.3  # 보통 브랜드 경쟁
+        elif brand_diversity <= 20:
+            brand_saturation = 1.7  # 높은 브랜드 경쟁
         else:
-            brand_saturation = 1.5  # 높은 브랜드 포화
+            brand_saturation = 2.0  # 매우 높은 브랜드 포화
 
-        # 5. 가격 전쟁 지표 (0-0.5) - 작은 가중치로 조정
+        # 5. 가격 전쟁 지표 (0-1.0) - 범위 확대
         if not prices:
             price_war = 0
         else:
             price_std = statistics.stdev(prices) if len(prices) > 1 else 0
             price_mean = statistics.mean(prices)
             price_cv = price_std / price_mean if price_mean > 0 else 0  # 변동계수
-            price_war = min(0.5, price_cv * 2)  # 가격 변동이 클수록 경쟁 치열
+            if price_cv < 0.1:
+                price_war = 0.1  # 가격 안정성
+            elif price_cv < 0.2:
+                price_war = 0.3  # 낮은 가격 변동
+            elif price_cv < 0.3:
+                price_war = 0.6  # 보통 가격 경쟁
+            elif price_cv < 0.5:
+                price_war = 0.8  # 높은 가격 경쟁
+            else:
+                price_war = 1.0  # 치열한 가격 전쟁
 
         total_score = competition_density + review_competition + quality_standard + brand_saturation + price_war
         return min(10, max(0, total_score))
@@ -991,15 +1002,47 @@ class NaverMarketAnalyzer:
                 avg_price = min_price = max_price = 0
 
             # 시장 규모 점수 계산 (0-100)
-            # 상품 수와 평균 가격을 고려한 복합 지표
-            if product_count >= 80:
-                size_factor = 100
-            elif product_count >= 50:
-                size_factor = 75
-            elif product_count >= 20:
-                size_factor = 50
+            # API의 total 결과와 실제 상품 다양성을 고려한 복합 지표
+            total_results = search_results.get('total', product_count)
+
+            # 브랜드 다양성 계산
+            brands = set()
+            for item in items:
+                brand = item.get('brand', '').strip()
+                if brand and brand != 'Unknown':
+                    brands.add(brand)
+
+            brand_diversity = len(brands)
+
+            # 총 검색 결과 수 기반 기본 점수 (더 넓은 스케일)
+            if total_results >= 20000000:  # 2천만 이상
+                base_score = 95
+            elif total_results >= 10000000:  # 1천만 이상
+                base_score = 85
+            elif total_results >= 5000000:   # 5백만 이상
+                base_score = 75
+            elif total_results >= 1000000:   # 1백만 이상
+                base_score = 60
+            elif total_results >= 100000:    # 10만 이상
+                base_score = 45
+            elif total_results >= 10000:     # 1만 이상
+                base_score = 30
             else:
-                size_factor = 25
+                base_score = 15
+
+            # 브랜드 다양성 보정 (최대 ±15점)
+            if brand_diversity >= 40:
+                diversity_bonus = 15
+            elif brand_diversity >= 30:
+                diversity_bonus = 10
+            elif brand_diversity >= 20:
+                diversity_bonus = 5
+            elif brand_diversity >= 10:
+                diversity_bonus = 2
+            else:
+                diversity_bonus = -5  # 다양성이 너무 낮으면 페널티
+
+            size_factor = min(100, base_score + diversity_bonus)
 
             # 평균 가격으로 시장 가치 보정
             if avg_price >= 100000:  # 10만원 이상
@@ -1012,6 +1055,9 @@ class NaverMarketAnalyzer:
                 price_factor = 1.0
 
             market_size_score = min(100, size_factor * price_factor)
+
+            # 로깅 (필요시 활성화)
+            # print(f"[DEBUG] Category: {category}, Market size score: {market_size_score}")
 
             # 경쟁 밀도 결정
             if product_count >= 70:
@@ -1602,7 +1648,8 @@ class NaverMarketAnalyzer:
             logger.info(f"채널 전략 분석 시작: {keyword}")
 
             # 1. 기본 상품 데이터 수집
-            products = await self.search_products(keyword, display=max_products)
+            search_result = self.shopping_api.search_products(keyword, display=max_products)
+            products = search_result.get('items', []) if search_result else []
             if not products or len(products) < 10:
                 logger.warning(f"충분한 상품 데이터가 없습니다: {len(products) if products else 0}개")
                 return self._get_empty_channel_analysis(keyword)
@@ -2055,7 +2102,8 @@ class NaverMarketAnalyzer:
             logger.info(f"경쟁사 모니터링 시작: {base_keyword}")
 
             # 현재 시장 상황 분석
-            current_products = await self.search_products(base_keyword, display=100)
+            search_result = self.shopping_api.search_products(base_keyword, display=100)
+            current_products = search_result.get('items', []) if search_result else []
             if not current_products:
                 return self._get_empty_competitor_analysis(base_keyword)
 
@@ -2111,7 +2159,8 @@ class NaverMarketAnalyzer:
                     }
 
             # DataLab 없을 때 쇼핑 API로 대체
-            products = await self.search_products(keyword, display=20)
+            search_result = self.shopping_api.search_products(keyword, display=20)
+            products = search_result.get('items', []) if search_result else []
             if products:
                 return {
                     'average_trend': len(products),

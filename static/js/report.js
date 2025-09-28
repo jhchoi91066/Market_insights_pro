@@ -1,13 +1,62 @@
 class ReportPage {
     constructor(reportData) {
-        this.reportData = reportData;
-        this.allProducts = this.parseProductPrices(reportData.top_10_products || []);
-        this.charts = {};
-        this.priceRange = [0, 1000];
-        this.currentSort = 'purchased_last_month';
-        this.debouncedFilter = this.debounce(this.filterDataByPrice, 250);
+        try {
+            // 🛡️ Validate and sanitize report data
+            this.reportData = this.validateReportData(reportData);
+            this.allProducts = this.parseProductPrices(this.reportData.top_10_products || []);
+            this.charts = {};
+            this.priceRange = [0, 1000];
+            this.currentSort = 'purchased_last_month';
+            this.debouncedFilter = this.debounce(this.filterDataByPrice, 250);
 
-        this.init();
+            this.init();
+        } catch (error) {
+            console.error("❌ ReportPage initialization failed:", error);
+            this.showErrorMessage("Report initialization failed. Please refresh the page.");
+        }
+    }
+
+    validateReportData(data) {
+        if (!data || typeof data !== 'object') {
+            throw new Error("Invalid report data: expected object");
+        }
+
+        // Ensure essential fields exist with defaults
+        const validated = {
+            ...data,
+            top_10_products: Array.isArray(data.top_10_products) ? data.top_10_products : [],
+            has_ml_predictions: Boolean(data.has_ml_predictions),
+            ml_predictions: Array.isArray(data.ml_predictions) ? data.ml_predictions : [],
+            keyword: data.keyword || 'Unknown',
+            difficulty_score: Number(data.difficulty_score) || 0
+        };
+
+        console.log("✅ Report data validated successfully");
+        return validated;
+    }
+
+    showErrorMessage(message) {
+        // Create error message display
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'bg-red-100 dark:bg-red-900/20 border border-red-400 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-4';
+        errorDiv.innerHTML = `
+            <div class="flex">
+                <div class="py-1">
+                    <svg class="fill-current h-6 w-6 text-red-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm1.41-1.41A8 8 0 1 0 15.66 4.34 8 8 0 0 0 4.34 15.66zm4.95-4.95a2 2 0 1 1 2.83 2.83 2 2 0 0 1-2.83-2.83z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-bold">Error</p>
+                    <p class="text-sm">${message}</p>
+                </div>
+            </div>
+        `;
+
+        const container = document.getElementById('report-container');
+        if (container) {
+            container.insertBefore(errorDiv, container.firstChild);
+        }
     }
 
     init() {
@@ -280,35 +329,66 @@ class ReportPage {
     }
 
     setupCharts() {
-        Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
-        const isDarkMode = document.documentElement.classList.contains('dark');
-        Chart.defaults.color = isDarkMode ? '#9CA3AF' : '#6B7280';
+        try {
+            Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            Chart.defaults.color = isDarkMode ? '#9CA3AF' : '#6B7280';
 
-        // Market Share Chart
-        const marketShareCtx = document.getElementById('marketShareChart').getContext('2d');
-        this.charts.marketShare = new Chart(marketShareCtx, {
-            type: 'bar',
-            data: { labels: [], datasets: [{ label: 'Monthly Sales', data: [], backgroundColor: '#3B82F6', borderRadius: 4 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-        });
+            // Market Share Chart with error handling
+            const marketShareCanvas = document.getElementById('marketShareChart');
+            if (marketShareCanvas) {
+                try {
+                    const marketShareCtx = marketShareCanvas.getContext('2d');
+                    this.charts.marketShare = new Chart(marketShareCtx, {
+                        type: 'bar',
+                        data: { labels: [], datasets: [{ label: 'Monthly Sales', data: [], backgroundColor: '#3B82F6', borderRadius: 4 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                    });
+                    console.log("✅ Market share chart initialized");
+                } catch (chartError) {
+                    console.error("❌ Market share chart initialization failed:", chartError);
+                }
+            } else {
+                console.warn("⚠️ Market share chart canvas not found");
+            }
 
-        // ML Predictions Chart (only if predictions are available)
-        if (this.reportData.has_ml_predictions && this.reportData.ml_predictions) {
-            this.setupMLPredictionsChart();
+            // ML Predictions Chart (only if predictions are available)
+            if (this.reportData.has_ml_predictions &&
+                Array.isArray(this.reportData.ml_predictions) &&
+                this.reportData.ml_predictions.length > 0) {
+                this.setupMLPredictionsChart();
+            } else {
+                console.log("ℹ️ ML predictions chart skipped - no data available");
+            }
+        } catch (error) {
+            console.error("❌ Charts setup failed:", error);
+            this.showErrorMessage("Chart initialization failed. Some visualizations may not work.");
         }
     }
 
     setupMLPredictionsChart() {
-        const mlChartCtx = document.getElementById('mlPredictionsChart');
-        if (!mlChartCtx) return;
+        try {
+            const mlChartCtx = document.getElementById('mlPredictionsChart');
+            if (!mlChartCtx) {
+                console.warn("⚠️ ML predictions chart canvas not found");
+                return;
+            }
 
-        const predictions = this.reportData.ml_predictions;
-        const isDarkMode = document.documentElement.classList.contains('dark');
+            const predictions = this.reportData.ml_predictions;
+            if (!Array.isArray(predictions) || predictions.length === 0) {
+                console.warn("⚠️ No ML predictions data available for chart");
+                return;
+            }
 
-        // 차트 데이터 준비
-        const labels = predictions.map(p => p.product_title.substring(0, 20) + '...');
-        const actualPrices = predictions.map(p => p.actual_price);
-        const recommendedPrices = predictions.map(p => p.recommended_price);
+            const isDarkMode = document.documentElement.classList.contains('dark');
+
+            // 차트 데이터 준비 with safe access
+            const labels = predictions.map(p => {
+                const title = p.product_title || 'Unknown Product';
+                return title.length > 20 ? title.substring(0, 20) + '...' : title;
+            });
+            const actualPrices = predictions.map(p => Number(p.actual_price) || 0);
+            const recommendedPrices = predictions.map(p => Number(p.recommended_price || p.predicted_price) || 0);
 
         this.charts.mlPredictions = new Chart(mlChartCtx, {
             type: 'bar',
@@ -372,14 +452,43 @@ class ReportPage {
                 }
             }
         });
+
+            console.log("✅ ML predictions chart initialized successfully");
+        } catch (error) {
+            console.error("❌ ML predictions chart initialization failed:", error);
+            // Don't show error message for optional chart failure
+        }
     }
 
     updateCharts(products) {
-        // Update Market Share Chart with top 5 filtered products
-        const top5 = products.sort((a, b) => b.purchased_last_month - a.purchased_last_month).slice(0, 5);
-        this.charts.marketShare.data.labels = top5.map(p => p.product_title.substring(0, 15) + '...');
-        this.charts.marketShare.data.datasets[0].data = top5.map(p => p.purchased_last_month);
-        this.charts.marketShare.update();
+        try {
+            if (!Array.isArray(products)) {
+                console.warn("⚠️ updateCharts called with invalid products data");
+                return;
+            }
+
+            // Update Market Share Chart with top 5 filtered products
+            if (this.charts.marketShare) {
+                try {
+                    // Create safe copy and filter products with valid sales data
+                    const validProducts = products.filter(p => p && typeof p.purchased_last_month === 'number');
+                    const top5 = validProducts
+                        .sort((a, b) => (b.purchased_last_month || 0) - (a.purchased_last_month || 0))
+                        .slice(0, 5);
+
+                    this.charts.marketShare.data.labels = top5.map(p => {
+                        const title = p.product_title || 'Unknown Product';
+                        return title.length > 15 ? title.substring(0, 15) + '...' : title;
+                    });
+                    this.charts.marketShare.data.datasets[0].data = top5.map(p => p.purchased_last_month || 0);
+                    this.charts.marketShare.update();
+                } catch (chartError) {
+                    console.error("❌ Market share chart update failed:", chartError);
+                }
+            }
+        } catch (error) {
+            console.error("❌ Chart update failed:", error);
+        }
     }
 }
 

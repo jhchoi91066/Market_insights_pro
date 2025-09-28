@@ -18,7 +18,6 @@ import yaml
 # 시스템 구성 요소들
 from core.mlflow_manager import get_mlflow_manager
 from core.ml_serving_api import get_ml_serving_service
-from core.ml_monitoring import get_ml_monitoring_service
 from core.ml_pipeline_orchestrator import get_ml_orchestrator, ModelType
 from core.cache import get_cache_manager
 from core.metrics_collector import get_metrics_collector
@@ -72,7 +71,6 @@ class SystemOrchestrator:
             "mlflow",
             "kafka",
             "ml_serving",
-            "ml_monitoring",
             "ml_orchestrator"
         ]
 
@@ -114,11 +112,6 @@ class SystemOrchestrator:
                             "enabled": True,
                             "health_check_interval": 60,
                             "dependencies": ["cache", "mlflow"]
-                        },
-                        "ml_monitoring": {
-                            "enabled": True,
-                            "health_check_interval": 120,
-                            "dependencies": ["mlflow", "ml_serving", "cache", "metrics"]
                         },
                         "ml_orchestrator": {
                             "enabled": True,
@@ -259,11 +252,6 @@ class SystemOrchestrator:
                 self.services["ml_serving"] = ml_service
                 return health.get("status") == "healthy"
 
-            elif service_name == "ml_monitoring":
-                monitoring_service = get_ml_monitoring_service()
-                monitoring_service.start_monitoring()
-                self.services["ml_monitoring"] = monitoring_service
-                return True
 
             elif service_name == "ml_orchestrator":
                 orchestrator = get_ml_orchestrator()
@@ -330,8 +318,6 @@ class SystemOrchestrator:
                 # ML 서빙 헬스 체크 (비동기이므로 간략화)
                 is_healthy = len(service.models) > 0
 
-            elif service_name == "ml_monitoring":
-                is_healthy = service.monitoring_active
 
             # 상태 업데이트
             if is_healthy:
@@ -404,9 +390,7 @@ class SystemOrchestrator:
             if service_name in self.services:
                 service = self.services[service_name]
 
-                if service_name == "ml_monitoring" and hasattr(service, 'stop_monitoring'):
-                    service.stop_monitoring()
-                elif service_name == "metrics" and hasattr(service, 'stop_collection'):
+                if service_name == "metrics" and hasattr(service, 'stop_collection'):
                     service.stop_collection()
 
             # 서비스 재초기화
@@ -441,9 +425,7 @@ class SystemOrchestrator:
                     logger.info(f"🔸 {service_name} 서비스 종료 중...")
                     service = self.services[service_name]
 
-                    if service_name == "ml_monitoring" and hasattr(service, 'stop_monitoring'):
-                        service.stop_monitoring()
-                    elif service_name == "metrics" and hasattr(service, 'stop_collection'):
+                    if service_name == "metrics" and hasattr(service, 'stop_collection'):
                         service.stop_collection()
 
                     self.service_health[service_name].status = ServiceStatus.STOPPED

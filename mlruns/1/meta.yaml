@@ -1,0 +1,6 @@
+artifact_location: file:///Users/jinhochoi/Desktop/개발/Market_insights/mlruns/1
+creation_time: 1758719200000
+experiment_id: '1'
+last_update_time: 1758860673981
+lifecycle_stage: active
+name: price_prediction_experiments

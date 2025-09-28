@@ -1,0 +1,910 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Result: {{ report.keyword }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            Market Analysis: {{ report.keyword }}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-400">
+            Generated on {{ report.analysis_date }} | {{ report.data_source }} | {{ report.actual_products_analyzed }} products analyzed
+        </p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Difficulty Score -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="flex items-center space-x-2 mb-1">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Market Difficulty</p>
+                        <button class="help-icon text-gray-400 hover:text-blue-500 transition-colors"
+                                data-section="market_difficulty"
+                                title="자세한 설명 보기">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ report.difficulty_score|default(0) }}/10</p>
+                </div>
+                <div class="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                    📊
+                </div>
+            </div>
+            <div class="mt-4 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-blue-600 h-2 rounded-full" style="width: {{ (report.difficulty_score|default(0)) * 10 }}px; max-width: 100px"></div>
+            </div>
+        </div>
+
+        <!-- Competition Count -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Competitors</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ report.competitor_count|default(0) }}</p>
+                </div>
+                <div class="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                    🏪
+                </div>
+            </div>
+        </div>
+
+        <!-- Market Saturation -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Market Saturation</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ report.market_saturation_percentage|default(0) }} percent</p>
+                </div>
+                <div class="h-12 w-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
+                    📈
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Sales -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Top 10 Sales</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">${{ report.top_10_total_sales|default(0) }}</p>
+                </div>
+                <div class="h-12 w-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                    💰
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced ML Insights -->
+    {% if report.trending_opportunities and report.trending_opportunities.top_opportunities %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg mb-8">
+        <div class="flex items-center mb-6">
+            <div class="h-8 w-8 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mr-3">
+                🎯
+            </div>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Trending Opportunities</h2>
+            <button class="help-icon ml-2 text-gray-400 hover:text-purple-500 transition-colors"
+                    data-section="trending_opportunities"
+                    title="자세한 설명 보기">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for opportunity in report.trending_opportunities.top_opportunities[:3] %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-2">{{ opportunity.keyword }}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <span class="tooltip-term" data-term="trend_score">Trend Score</span>: {{ opportunity.trend_score|default(0) }}/100
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <span class="tooltip-term" data-term="opportunity_score">Opportunity Score</span>: {{ opportunity.opportunity_score|default(0) }}
+                </p>
+
+                <div class="mt-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div class="bg-purple-600 h-2 rounded-full" style="width: {{ opportunity.opportunity_score|default(0) }}px; max-width: 100px"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Category Growth Analysis -->
+    {% if report.category_growth_analysis and report.category_growth_analysis.top_growth_categories %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg mb-8">
+        <div class="flex items-center mb-6">
+            <div class="h-8 w-8 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mr-3">
+                📊
+            </div>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Category Growth Analysis</h2>
+            <button class="help-icon ml-2 text-gray-400 hover:text-green-500 transition-colors"
+                    data-section="category_growth"
+                    title="자세한 설명 보기">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for category in report.category_growth_analysis.top_growth_categories[:4] %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-2">{{ category.category }}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <span class="tooltip-term" data-term="growth_rate">Growth Rate</span>: {{ category.growth_rate|default(0) }}%
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <span class="tooltip-term" data-term="market_size_score">Market Size Score</span>: {{ category.market_size_score|default(0) }}
+                </p>
+
+                <div class="mt-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div class="bg-green-600 h-2 rounded-full" style="width: {{ ((category.growth_rate + 10) * 2)|round if ((category.growth_rate + 10) * 2) <= 100 else 100 }}px; max-width: 100px"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Brand Gap Analysis -->
+    {% if report.brand_gap_analysis and report.brand_gap_analysis.brand_market_share %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg mb-8">
+        <div class="flex items-center mb-6">
+            <div class="h-8 w-8 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center mr-3">
+                🏷️
+            </div>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Brand Gap Analysis</h2>
+            <button class="help-icon ml-2 text-gray-400 hover:text-orange-500 transition-colors"
+                    data-section="brand_gap"
+                    title="자세한 설명 보기">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for brand in report.brand_gap_analysis.brand_market_share[:6] %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-2">{{ brand.brand }}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <span class="tooltip-term" data-term="market_share">Market Share</span>: {{ brand.market_share|default(0) }}%
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <span class="tooltip-term" data-term="brand_strength">Brand Strength</span>: {{ brand.brand_strength|default(0) }}
+                </p>
+
+                <div class="mt-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div class="bg-orange-600 h-2 rounded-full" style="width: {{ (brand.market_share * 2)|round if (brand.market_share * 2) <= 100 else 100 }}px; max-width: 100px"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ML Predictions -->
+    {% if report.has_ml_predictions and report.ml_predictions %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg mb-8">
+        <div class="flex items-center mb-6">
+            <div class="h-8 w-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mr-3">
+                🧠
+            </div>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">AI Price Predictions</h2>
+            <button class="help-icon ml-2 text-gray-400 hover:text-blue-500 transition-colors"
+                    data-section="ml_predictions"
+                    title="자세한 설명 보기">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for prediction in report.ml_predictions[:4] %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-2 text-sm">
+                    {{ prediction.product_title[:50] }}{% if prediction.product_title|length > 50 %}...{% endif %}
+                </h3>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                        <p class="text-gray-600 dark:text-gray-400">Current Price</p>
+                        <p class="font-semibold">${{ prediction.actual_price|default(0) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600 dark:text-gray-400">Recommended</p>
+                        <p class="font-semibold text-green-600">${{ prediction.recommended_price|default(0) }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Channel Strategy Analysis -->
+    {% if report.channel_strategy_analysis and not report.channel_strategy_analysis.error %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg mb-8">
+        <div class="flex items-center mb-6">
+            <div class="h-8 w-8 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center mr-3">
+                🏪
+            </div>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Channel Strategy Analysis</h2>
+            <button class="help-icon ml-2 text-gray-400 hover:text-indigo-500 transition-colors"
+                    data-section="channel_strategy"
+                    title="자세한 설명 보기">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+
+        {% if report.channel_strategy_analysis.channel_analysis and report.channel_strategy_analysis.channel_analysis.channels %}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for channel in report.channel_strategy_analysis.channel_analysis.channels[:6] %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-2">{{ channel.channel }}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <span class="tooltip-term" data-term="market_share">Market Share</span>: {{ channel.market_share|default(0) }}%
+                </p>
+
+                <div class="mt-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ channel.market_share|default(0) }}px; max-width: 100px"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Smart Business Insights -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-6 shadow-lg mb-8">
+        <div class="flex items-center mb-6">
+            <span class="mr-3 text-2xl">🧠</span>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Smart Business Insights</h2>
+            <button class="help-icon ml-2 text-gray-400 hover:text-blue-500 transition-colors"
+                    onclick="showSmartInsights()"
+                    title="인사이트 생성 방법 보기">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Dynamic Insights based on data -->
+        <div id="smartInsights" class="space-y-4">
+            <!-- This will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Recommendations -->
+    {% if report.recommendation %}
+    <div class="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-6 shadow-lg mb-8">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <span class="mr-2">💡</span>
+            AI-Powered Recommendations
+        </h2>
+
+        <div class="space-y-4">
+            {% if report.recommendation.entry_strategy %}
+            <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-2">Entry Strategy</h3>
+                <p class="text-gray-700 dark:text-gray-300">{{ report.recommendation.entry_strategy }}</p>
+            </div>
+            {% endif %}
+
+            {% if report.recommendation.pricing_strategy %}
+            <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-2">Pricing Strategy</h3>
+                <p class="text-gray-700 dark:text-gray-300">{{ report.recommendation.pricing_strategy }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Top Products Table -->
+    {% if report.top_10_products %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Top Performing Products</h2>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Product</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rating</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Reviews</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for product in report.top_10_products[:10] %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                {{ product.product_title[:60] }}{% if product.product_title|length > 60 %}...{% endif %}
+                            </div>
+                            {% if product.brand %}
+                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ product.brand }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                            ${{ product.discounted_price|default(0) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {{ product.product_rating|default(0) }}/5
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {{ product.total_reviews|default(0) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Explanation Modal -->
+<div id="explanationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div class="mt-3">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white" id="modalTitle">
+                    섹션 설명
+                </h3>
+                <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white" onclick="closeExplanationModal()">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="py-4">
+                <div id="modalShortDescription" class="text-gray-600 dark:text-gray-400 mb-4 text-sm"></div>
+                <div id="modalDetailedExplanation" class="prose dark:prose-invert max-w-none mb-6"></div>
+                <div id="modalBusinessImplications" class="prose dark:prose-invert max-w-none"></div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button"
+                        class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                        onclick="closeExplanationModal()">
+                    확인
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// 설명 데이터베이스 (JavaScript 버전)
+const explanationData = {
+    market_difficulty: {
+        title: "Market Difficulty (시장 진입 난이도)",
+        shortDescription: "해당 시장에 진입하기 위한 전반적인 난이도를 0-10 척도로 평가합니다.",
+        detailedExplanation: `
+            <h3>🎯 Market Difficulty란?</h3>
+            <p>시장 진입 난이도는 새로운 셀러가 특정 카테고리에서 성공적으로 사업을 시작할 수 있는 가능성을 나타내는 종합 지표입니다.</p>
+
+            <h4>📊 평가 요소 (총 5가지)</h4>
+            <ul>
+                <li><strong>경쟁 밀도 (0-2.5점)</strong>: 시장 내 경쟁업체 수</li>
+                <li><strong>리뷰 경쟁 강도 (0-2.0점)</strong>: 기존 상품들의 평균 리뷰 수</li>
+                <li><strong>품질 표준 (0-2.0점)</strong>: 시장의 평균 상품 평점</li>
+                <li><strong>브랜드 포화도 (0-2.0점)</strong>: 시장 내 브랜드 다양성</li>
+                <li><strong>가격 경쟁 (0-1.0점)</strong>: 가격 변동성과 경쟁 강도</li>
+            </ul>
+
+            <h4>🚦 점수 해석</h4>
+            <ul>
+                <li><span class="text-green-600 font-semibold">0-3점: 진입 용이</span> - 신규 진입에 유리한 환경</li>
+                <li><span class="text-yellow-600 font-semibold">4-6점: 보통 난이도</span> - 차별화 전략 필요</li>
+                <li><span class="text-red-600 font-semibold">7-10점: 진입 어려움</span> - 신중한 접근과 강력한 전략 필요</li>
+            </ul>
+        `,
+        businessImplications: `
+            <h4>💼 비즈니스 활용법</h4>
+            <ul>
+                <li><strong>낮은 점수 (0-3):</strong> 빠른 진입과 공격적인 마케팅 전략 고려</li>
+                <li><strong>중간 점수 (4-6):</strong> 틈새 시장 발굴이나 제품 차별화에 집중</li>
+                <li><strong>높은 점수 (7-10):</strong> 충분한 자본과 장기적 관점으로 접근</li>
+            </ul>
+        `
+    },
+    trending_opportunities: {
+        title: "Trending Opportunities (트렌딩 기회)",
+        shortDescription: "AI가 분석한 현재 급성장하고 있는 키워드와 시장 기회를 보여줍니다.",
+        detailedExplanation: `
+            <h3>🎯 Trending Opportunities란?</h3>
+            <p>머신러닝 알고리즘이 검색 트렌드, 판매 데이터, 시장 성장률을 분석하여 발굴한 잠재력 높은 키워드들입니다.</p>
+
+            <h4>📊 평가 지표</h4>
+            <ul>
+                <li><strong>Trend Score (0-100):</strong> 최근 검색량과 관심도 증가율</li>
+                <li><strong>Opportunity Score (0-100):</strong> 시장 기회와 수익성 잠재력</li>
+            </ul>
+
+            <h4>🔍 분석 방법</h4>
+            <ul>
+                <li>검색 트렌드 분석 (Google Trends, 네이버 등)</li>
+                <li>경쟁 강도 대비 수요 증가율</li>
+                <li>계절성 및 이벤트 연관성</li>
+                <li>소셜 미디어 언급량 변화</li>
+            </ul>
+        `,
+        businessImplications: `
+            <h4>💼 비즈니스 활용법</h4>
+            <ul>
+                <li><strong>높은 Trend Score:</strong> 빠른 의사결정으로 트렌드 선점</li>
+                <li><strong>높은 Opportunity Score:</strong> 중장기 투자 가치가 높은 분야</li>
+                <li><strong>두 점수 모두 높음:</strong> 최우선 진입 고려 대상</li>
+            </ul>
+        `
+    },
+    category_growth: {
+        title: "Category Growth Analysis (카테고리 성장 분석)",
+        shortDescription: "각 상품 카테고리별 성장률과 시장 규모를 분석하여 가장 유망한 분야를 식별합니다.",
+        detailedExplanation: `
+            <h3>🎯 Category Growth Analysis란?</h3>
+            <p>상품 카테고리별로 매출 성장률, 시장 규모, 진입 장벽 등을 종합 분석하여 투자 가치를 평가합니다.</p>
+
+            <h4>📊 주요 지표</h4>
+            <ul>
+                <li><strong>Growth Rate (%):</strong> 최근 6개월 대비 성장률</li>
+                <li><strong>Market Size Score:</strong> 시장 규모와 잠재적 수익성</li>
+            </ul>
+
+            <h4>🔍 분석 기준</h4>
+            <ul>
+                <li>판매량 증가 추세</li>
+                <li>신규 셀러 진입률</li>
+                <li>평균 상품 가격 변화</li>
+                <li>소비자 관심도 변화</li>
+            </ul>
+        `,
+        businessImplications: `
+            <h4>💼 비즈니스 활용법</h4>
+            <ul>
+                <li><strong>높은 성장률:</strong> 빠른 시장 확장 기대, 조기 진입 유리</li>
+                <li><strong>높은 Market Size Score:</strong> 안정적인 수익 창출 가능</li>
+                <li><strong>두 지표 균형:</strong> 리스크 대비 수익률이 최적화된 분야</li>
+            </ul>
+        `
+    },
+    brand_gap: {
+        title: "Brand Gap Analysis (브랜드 갭 분석)",
+        shortDescription: "시장 내 브랜드별 점유율과 경쟁 강도를 분석하여 브랜드 전략 수립에 도움을 제공합니다.",
+        detailedExplanation: `
+            <h3>🎯 Brand Gap Analysis란?</h3>
+            <p>시장 내 주요 브랜드들의 점유율과 브랜드 파워를 분석하여 신규 브랜드의 진입 기회를 찾아냅니다.</p>
+
+            <h4>📊 주요 지표</h4>
+            <ul>
+                <li><strong>Market Share (%):</strong> 해당 브랜드의 시장 점유율</li>
+                <li><strong>Brand Strength:</strong> 브랜드 인지도와 고객 충성도</li>
+            </ul>
+
+            <h4>🔍 분석 요소</h4>
+            <ul>
+                <li>브랜드별 판매량과 매출 비중</li>
+                <li>고객 리뷰와 평점 분석</li>
+                <li>가격 프리미엄 능력</li>
+                <li>브랜드 인지도와 검색량</li>
+            </ul>
+        `,
+        businessImplications: `
+            <h4>💼 비즈니스 활용법</h4>
+            <ul>
+                <li><strong>낮은 브랜드 집중도:</strong> 새로운 브랜드 진입 기회</li>
+                <li><strong>높은 브랜드 집중도:</strong> 틈새 전략이나 혁신적 차별화 필요</li>
+                <li><strong>중간 정도 분산:</strong> 기존 브랜드와의 파트너십 고려</li>
+            </ul>
+        `
+    },
+    ml_predictions: {
+        title: "AI Price Predictions (AI 가격 예측)",
+        shortDescription: "머신러닝 모델이 예측한 최적 가격과 현재 시장 가격을 비교하여 가격 전략을 제안합니다.",
+        detailedExplanation: `
+            <h3>🎯 AI Price Predictions란?</h3>
+            <p>고급 머신러닝 알고리즘이 상품 특성, 시장 상황, 경쟁 환경을 종합 분석하여 최적 가격을 예측합니다.</p>
+
+            <h4>🤖 AI 모델 특징</h4>
+            <ul>
+                <li>수만 개 상품 데이터로 학습</li>
+                <li>실시간 시장 상황 반영</li>
+                <li>경쟁사 가격 변동 고려</li>
+                <li>계절성과 트렌드 분석</li>
+            </ul>
+
+            <h4>📊 예측 정확도</h4>
+            <ul>
+                <li>평균 예측 정확도: 85% 이상</li>
+                <li>가격 최적화 효과: 평균 15-25% 매출 증가</li>
+            </ul>
+        `,
+        businessImplications: `
+            <h4>💼 비즈니스 활용법</h4>
+            <ul>
+                <li><strong>현재 가격 > 추천 가격:</strong> 가격 인하로 판매량 증대 고려</li>
+                <li><strong>현재 가격 < 추천 가격:</strong> 가격 인상으로 수익성 개선 가능</li>
+                <li><strong>가격 차이가 큰 경우:</strong> 우선적으로 가격 조정 검토</li>
+            </ul>
+        `
+    },
+    channel_strategy: {
+        title: "Channel Strategy Analysis (채널 전략 분석)",
+        shortDescription: "다양한 판매 채널별 시장 점유율과 특성을 분석하여 최적 채널 믹스를 제안합니다.",
+        detailedExplanation: `
+            <h3>🎯 Channel Strategy Analysis란?</h3>
+            <p>온라인 쇼핑몰, 오픈마켓, 소셜커머스 등 다양한 판매 채널의 특성과 기회를 분석합니다.</p>
+
+            <h4>📊 분석 채널</h4>
+            <ul>
+                <li>네이버 쇼핑</li>
+                <li>쿠팡, 11번가 등 오픈마켓</li>
+                <li>브랜드 자체 쇼핑몰</li>
+                <li>소셜커머스 플랫폼</li>
+            </ul>
+
+            <h4>🔍 평가 요소</h4>
+            <ul>
+                <li>채널별 트래픽과 전환율</li>
+                <li>수수료와 마케팅 비용</li>
+                <li>고객 특성과 구매 패턴</li>
+                <li>경쟁 강도와 진입 장벽</li>
+            </ul>
+        `,
+        businessImplications: `
+            <h4>💼 비즈니스 활용법</h4>
+            <ul>
+                <li><strong>높은 점유율 채널:</strong> 우선 진입하여 시장 선점</li>
+                <li><strong>성장하는 채널:</strong> 조기 진입으로 성장 동력 확보</li>
+                <li><strong>틈새 채널:</strong> 차별화된 고객층 공략 기회</li>
+            </ul>
+        `
+    }
+};
+
+// 용어 사전 (툴팁용)
+const termGlossary = {
+    trend_score: "최근 검색량과 관심도 증가율을 0-100으로 표현한 점수",
+    opportunity_score: "시장 기회와 수익성 잠재력을 0-100으로 평가한 점수",
+    growth_rate: "최근 6개월 대비 해당 카테고리의 성장률 (단위: %)",
+    market_size_score: "시장 규모와 잠재적 수익성을 종합 평가한 점수",
+    market_share: "전체 시장에서 해당 브랜드/채널이 차지하는 비율 (단위: %)",
+    brand_strength: "브랜드 인지도와 고객 충성도를 나타내는 지표",
+    competitor_count: "해당 키워드/카테고리에서 경쟁하는 셀러의 수",
+    market_saturation: "시장의 포화 정도를 백분율로 나타낸 지표"
+};
+
+// 툴팁 관련 함수들
+function createTooltip() {
+    const tooltip = document.createElement('div');
+    tooltip.id = 'tooltip';
+    tooltip.className = 'absolute z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg opacity-0 pointer-events-none transition-opacity duration-200 max-w-xs';
+    tooltip.style.top = '0px';
+    tooltip.style.left = '0px';
+    document.body.appendChild(tooltip);
+    return tooltip;
+}
+
+function showTooltip(element, text) {
+    let tooltip = document.getElementById('tooltip');
+    if (!tooltip) {
+        tooltip = createTooltip();
+    }
+
+    tooltip.textContent = text;
+    tooltip.classList.remove('opacity-0');
+    tooltip.classList.add('opacity-90');
+
+    const rect = element.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+
+    // 툴팁 위치 계산
+    let top = rect.top - tooltipRect.height - 8;
+    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+
+    // 화면 경계 체크
+    if (top < 0) {
+        top = rect.bottom + 8;
+    }
+    if (left < 0) {
+        left = 8;
+    }
+    if (left + tooltipRect.width > window.innerWidth) {
+        left = window.innerWidth - tooltipRect.width - 8;
+    }
+
+    tooltip.style.top = top + window.scrollY + 'px';
+    tooltip.style.left = left + 'px';
+}
+
+function hideTooltip() {
+    const tooltip = document.getElementById('tooltip');
+    if (tooltip) {
+        tooltip.classList.remove('opacity-90');
+        tooltip.classList.add('opacity-0');
+    }
+}
+
+// 스마트 인사이트 생성 함수들
+function generateSmartInsights() {
+    const insights = [];
+
+    // Market Difficulty 기반 인사이트
+    const difficultyScore = {{ report.difficulty_score|default(0) }};
+    const competitorCount = {{ report.competitor_count|default(0) }};
+
+    if (difficultyScore <= 3) {
+        insights.push({
+            type: 'opportunity',
+            icon: '🟢',
+            title: '시장 진입 기회',
+            content: `낮은 시장 난이도(${difficultyScore}/10)로 진입이 용이합니다. 빠른 의사결정으로 시장을 선점할 수 있는 좋은 기회입니다.`,
+            action: '즉시 진입을 고려하고 초기 마케팅 예산을 확보하세요.'
+        });
+    } else if (difficultyScore <= 6) {
+        insights.push({
+            type: 'caution',
+            icon: '🟡',
+            title: '차별화 전략 필요',
+            content: `중간 수준의 시장 난이도(${difficultyScore}/10)입니다. 경쟁이 존재하므로 차별화된 접근이 필요합니다.`,
+            action: '독특한 가치 제안이나 틈새 시장을 발굴하여 경쟁 우위를 확보하세요.'
+        });
+    } else {
+        insights.push({
+            type: 'warning',
+            icon: '🔴',
+            title: '신중한 접근 필요',
+            content: `높은 시장 난이도(${difficultyScore}/10)로 진입이 어렵습니다. 충분한 준비와 자본이 필요합니다.`,
+            action: '시장 조사를 더 진행하고 혁신적인 제품이나 강력한 브랜딩 전략을 수립하세요.'
+        });
+    }
+
+    // 경쟁자 수 기반 인사이트
+    if (competitorCount > 0) {
+        if (competitorCount <= 20) {
+            insights.push({
+                type: 'info',
+                icon: '📊',
+                title: '적정 경쟁 환경',
+                content: `${competitorCount}개의 경쟁업체가 있어 건전한 경쟁 환경을 형성하고 있습니다.`,
+                action: '경쟁사 분석을 통해 차별화 포인트를 찾아보세요.'
+            });
+        } else if (competitorCount <= 50) {
+            insights.push({
+                type: 'caution',
+                icon: '⚠️',
+                title: '경쟁 심화',
+                content: `${competitorCount}개의 많은 경쟁업체가 존재합니다. 치열한 경쟁이 예상됩니다.`,
+                action: '강력한 차별화 전략과 브랜딩이 성공의 핵심입니다.'
+            });
+        } else {
+            insights.push({
+                type: 'warning',
+                icon: '🚨',
+                title: '포화 시장',
+                content: `${competitorCount}개의 매우 많은 경쟁업체로 시장이 포화 상태입니다.`,
+                action: '완전히 새로운 접근 방식이나 혁신적인 제품이 필요합니다.'
+            });
+        }
+    }
+
+    // 가격 분석 인사이트 (ML Predictions 있을 때)
+    {% if report.has_ml_predictions and report.ml_predictions %}
+    const pricePredictions = {{ report.ml_predictions|length }};
+    if (pricePredictions > 0) {
+        insights.push({
+            type: 'info',
+            icon: '💰',
+            title: 'AI 가격 최적화',
+            content: `${pricePredictions}개 상품에 대한 AI 가격 예측을 제공합니다.`,
+            action: 'AI 권장 가격을 참고하여 경쟁력 있는 가격 전략을 수립하세요.'
+        });
+    }
+    {% endif %}
+
+    // 트렌딩 기회 인사이트
+    {% if report.trending_opportunities and report.trending_opportunities.top_opportunities %}
+    insights.push({
+        type: 'opportunity',
+        icon: '🎯',
+        title: '성장 키워드 발견',
+        content: `{{ report.trending_opportunities.top_opportunities|length }}개의 유망한 트렌딩 키워드를 발견했습니다.`,
+        action: '높은 Opportunity Score를 가진 키워드를 우선적으로 검토해보세요.'
+    });
+    {% endif %}
+
+    return insights;
+}
+
+function renderSmartInsights() {
+    const insights = generateSmartInsights();
+    const container = document.getElementById('smartInsights');
+
+    if (insights.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                <p>현재 데이터를 바탕으로 인사이트를 생성할 수 없습니다.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = insights.map(insight => `
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border-l-4 ${getBorderColor(insight.type)}">
+            <div class="flex items-start space-x-3">
+                <span class="text-2xl flex-shrink-0">${insight.icon}</span>
+                <div class="flex-1">
+                    <h3 class="font-semibold text-gray-900 dark:text-white mb-2">${insight.title}</h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-3">${insight.content}</p>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-md p-3">
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">💡 권장사항:</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${insight.action}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function getBorderColor(type) {
+    switch(type) {
+        case 'opportunity': return 'border-green-500';
+        case 'warning': return 'border-red-500';
+        case 'caution': return 'border-yellow-500';
+        case 'info': return 'border-blue-500';
+        default: return 'border-gray-300';
+    }
+}
+
+function showSmartInsights() {
+    // 스마트 인사이트 생성 방법에 대한 설명을 모달로 표시
+    const data = {
+        title: "Smart Business Insights (스마트 비즈니스 인사이트)",
+        shortDescription: "실제 분석 데이터를 바탕으로 AI가 생성한 맞춤형 비즈니스 인사이트입니다.",
+        detailedExplanation: `
+            <h3>🧠 Smart Insights란?</h3>
+            <p>시장 분석 결과를 바탕으로 실시간으로 생성되는 맞춤형 비즈니스 인사이트입니다.</p>
+
+            <h4>📊 생성 기준</h4>
+            <ul>
+                <li><strong>Market Difficulty:</strong> 진입 난이도에 따른 전략 제안</li>
+                <li><strong>Competition Level:</strong> 경쟁 강도 분석 기반 권장사항</li>
+                <li><strong>Trending Data:</strong> 성장 키워드와 기회 분석</li>
+                <li><strong>AI Predictions:</strong> 머신러닝 예측 결과 활용법</li>
+            </ul>
+
+            <h4>🎯 인사이트 유형</h4>
+            <ul>
+                <li><span class="text-green-600">🟢 기회:</span> 시장 진입 기회와 성장 잠재력</li>
+                <li><span class="text-yellow-600">🟡 주의:</span> 차별화 전략이 필요한 영역</li>
+                <li><span class="text-red-600">🔴 경고:</span> 신중한 접근이 필요한 고위험 영역</li>
+                <li><span class="text-blue-600">📊 정보:</span> 추가 분석이나 전략 수립 가이드</li>
+            </ul>
+        `,
+        businessImplications: `
+            <h4>💼 활용 방법</h4>
+            <ul>
+                <li><strong>우선순위 결정:</strong> 가장 중요한 인사이트부터 검토</li>
+                <li><strong>전략 수립:</strong> 각 권장사항을 비즈니스 계획에 반영</li>
+                <li><strong>리스크 관리:</strong> 경고 사항을 미리 파악하여 대응책 마련</li>
+                <li><strong>기회 활용:</strong> 발견된 기회를 빠르게 실행에 옮기기</li>
+            </ul>
+        `
+    };
+
+    document.getElementById('modalTitle').textContent = data.title;
+    document.getElementById('modalShortDescription').textContent = data.shortDescription;
+    document.getElementById('modalDetailedExplanation').innerHTML = data.detailedExplanation;
+    document.getElementById('modalBusinessImplications').innerHTML = data.businessImplications;
+
+    document.getElementById('explanationModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+// 모달 관련 함수들
+function showExplanationModal(sectionKey) {
+    const data = explanationData[sectionKey];
+    if (!data) return;
+
+    document.getElementById('modalTitle').textContent = data.title;
+    document.getElementById('modalShortDescription').textContent = data.shortDescription;
+    document.getElementById('modalDetailedExplanation').innerHTML = data.detailedExplanation;
+    document.getElementById('modalBusinessImplications').innerHTML = data.businessImplications;
+
+    document.getElementById('explanationModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden'; // 스크롤 방지
+}
+
+function closeExplanationModal() {
+    document.getElementById('explanationModal').classList.add('hidden');
+    document.body.style.overflow = 'auto'; // 스크롤 복원
+}
+
+// 도움말 아이콘 클릭 이벤트 리스너
+document.addEventListener('DOMContentLoaded', function() {
+    // 도움말 아이콘 이벤트
+    const helpIcons = document.querySelectorAll('.help-icon');
+    helpIcons.forEach(icon => {
+        icon.addEventListener('click', function() {
+            const sectionKey = this.getAttribute('data-section');
+            showExplanationModal(sectionKey);
+        });
+    });
+
+    // 툴팁 이벤트
+    const tooltipTerms = document.querySelectorAll('.tooltip-term');
+    tooltipTerms.forEach(term => {
+        // 마우스 오버 이벤트
+        term.addEventListener('mouseenter', function() {
+            const termKey = this.getAttribute('data-term');
+            const definition = termGlossary[termKey];
+            if (definition) {
+                showTooltip(this, definition);
+            }
+        });
+
+        // 마우스 아웃 이벤트
+        term.addEventListener('mouseleave', function() {
+            hideTooltip();
+        });
+
+        // 클릭 이벤트 (모바일 지원)
+        term.addEventListener('click', function(e) {
+            e.preventDefault();
+            const termKey = this.getAttribute('data-term');
+            const definition = termGlossary[termKey];
+            if (definition) {
+                showTooltip(this, definition);
+                // 3초 후 자동으로 숨기기
+                setTimeout(hideTooltip, 3000);
+            }
+        });
+    });
+
+    // 모달 배경 클릭 시 닫기
+    document.getElementById('explanationModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeExplanationModal();
+        }
+    });
+
+    // ESC 키 눌렀을 때 모달 닫기
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeExplanationModal();
+        }
+    });
+
+    // 스크롤 시 툴팁 숨기기
+    window.addEventListener('scroll', hideTooltip);
+
+    // 스마트 인사이트 렌더링
+    renderSmartInsights();
+});
+
+console.log('Advanced ML Report with interactive explanations loaded successfully');
+</script>
+{% endblock %}

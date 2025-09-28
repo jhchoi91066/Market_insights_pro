@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Interactive Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-8">
+        <h1 class="text-3xl font-bold mb-8">Test Interactive Help Icons</h1>
+
+        <!-- Test Section -->
+        <div class="bg-white rounded-lg p-6 shadow-lg mb-8">
+            <div class="flex items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-900">Market Difficulty</h2>
+                <button class="help-icon ml-2 text-gray-400 hover:text-blue-500 transition-colors"
+                        data-section="market_difficulty"
+                        title="자세한 설명 보기">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+            <p>Click the ? icon to test the modal functionality.</p>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="explanationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex items-center justify-between pb-4 border-b border-gray-200">
+                    <h3 class="text-lg font-bold text-gray-900" id="modalTitle">섹션 설명</h3>
+                    <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeExplanationModal()">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="py-4">
+                    <div id="modalShortDescription" class="text-gray-600 mb-4 text-sm"></div>
+                    <div id="modalDetailedExplanation" class="prose max-w-none mb-6"></div>
+                    <div id="modalBusinessImplications" class="prose max-w-none"></div>
+                </div>
+                <div class="flex items-center justify-end pt-4 border-t border-gray-200">
+                    <button type="button" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center" onclick="closeExplanationModal()">
+                        확인
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 설명 데이터
+        const explanationData = {
+            market_difficulty: {
+                title: "Market Difficulty (시장 진입 난이도)",
+                shortDescription: "해당 시장에 진입하기 위한 전반적인 난이도를 0-10 척도로 평가합니다.",
+                detailedExplanation: `
+                    <h3>🎯 Market Difficulty란?</h3>
+                    <p>시장 진입 난이도는 새로운 셀러가 특정 카테고리에서 성공적으로 사업을 시작할 수 있는 가능성을 나타내는 종합 지표입니다.</p>
+                    <h4>📊 평가 요소 (총 5가지)</h4>
+                    <ul>
+                        <li><strong>경쟁 밀도 (0-2.5점)</strong>: 시장 내 경쟁업체 수</li>
+                        <li><strong>리뷰 경쟁 강도 (0-2.0점)</strong>: 기존 상품들의 평균 리뷰 수</li>
+                        <li><strong>품질 표준 (0-2.0점)</strong>: 시장의 평균 상품 평점</li>
+                        <li><strong>브랜드 포화도 (0-2.0점)</strong>: 시장 내 브랜드 다양성</li>
+                        <li><strong>가격 경쟁 (0-1.0점)</strong>: 가격 변동성과 경쟁 강도</li>
+                    </ul>
+                `,
+                businessImplications: `
+                    <h4>💼 비즈니스 활용법</h4>
+                    <ul>
+                        <li><strong>낮은 점수 (0-3):</strong> 빠른 진입과 공격적인 마케팅 전략 고려</li>
+                        <li><strong>중간 점수 (4-6):</strong> 틈새 시장 발굴이나 제품 차별화에 집중</li>
+                        <li><strong>높은 점수 (7-10):</strong> 충분한 자본과 장기적 관점으로 접근</li>
+                    </ul>
+                `
+            }
+        };
+
+        function showExplanationModal(sectionKey) {
+            const data = explanationData[sectionKey];
+            if (!data) return;
+
+            document.getElementById('modalTitle').textContent = data.title;
+            document.getElementById('modalShortDescription').textContent = data.shortDescription;
+            document.getElementById('modalDetailedExplanation').innerHTML = data.detailedExplanation;
+            document.getElementById('modalBusinessImplications').innerHTML = data.businessImplications;
+
+            document.getElementById('explanationModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeExplanationModal() {
+            document.getElementById('explanationModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        // 이벤트 리스너
+        document.addEventListener('DOMContentLoaded', function() {
+            const helpIcons = document.querySelectorAll('.help-icon');
+            console.log('Found help icons:', helpIcons.length);
+
+            helpIcons.forEach(icon => {
+                icon.addEventListener('click', function() {
+                    console.log('Help icon clicked!');
+                    const sectionKey = this.getAttribute('data-section');
+                    console.log('Section key:', sectionKey);
+                    showExplanationModal(sectionKey);
+                });
+            });
+
+            // 모달 배경 클릭 시 닫기
+            document.getElementById('explanationModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeExplanationModal();
+                }
+            });
+
+            // ESC 키 눌렀을 때 모달 닫기
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeExplanationModal();
+                }
+            });
+        });
+
+        console.log('Test script loaded successfully');
+    </script>
+</body>
+</html>

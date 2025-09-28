@@ -33,9 +33,7 @@ from core.api_optimizer import get_api_optimizer, parse_pagination_params, Pagin
 from core.connection_pool import get_connection_pool, get_read_replica_simulator
 from core.metrics_collector import get_metrics_collector, record_http_request_metric, record_analysis_request_metric
 from core.health_checks import get_health_status, is_healthy
-from core.scraping_monitor import get_scraping_monitor, ScrapingStatus
 from core.ml_serving_api import get_ml_serving_service, PricePredictionRequest, PricePredictionResponse, BatchPredictionRequest, BatchPredictionResponse, ModelInfo
-from core.ml_monitoring import get_ml_monitoring_service, ModelHealthReport, AlertLevel
 from core.system_orchestrator import get_system_orchestrator
 from core.performance_optimizer import get_performance_optimizer
 from prometheus_client import CONTENT_TYPE_LATEST
@@ -100,10 +98,148 @@ def get_analyzer():
         print("✅ 네이버 기반 분석기 준비 완료!")
     return naver_analyzer
 
+def sanitize_template_strings(data):
+    """템플릿 렌더링을 위해 문자열을 안전하게 정리"""
+    if isinstance(data, dict):
+        return {k: sanitize_template_strings(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_template_strings(item) for item in data]
+    elif isinstance(data, str):
+        # % 문자를 완전히 제거하거나 대체하여 포맷팅 문제 방지
+        return data.replace('%', ' percent')
+    else:
+        return data
+
+def validate_report_data_structure(report_data: dict, keyword: str) -> dict:
+    """🛡️ 리포트 데이터 구조 안전성 검증 및 기본값 설정"""
+    try:
+        # 기본 구조 보장
+        validated_data = dict(report_data)
+
+        # 필수 필드들의 기본값 설정
+        essential_fields = {
+            'keyword': keyword,
+            'total_products': 0,
+            'products_found': 0,
+            'products_saved': 0,
+            'analysis_date': datetime.now().strftime('%Y-%m-%d'),
+            'analysis_timestamp': datetime.now().isoformat(),
+            'difficulty_score': 0,
+            'competition_level': 'Unknown',
+            'has_trend_data': False,
+            'has_ml_predictions': False
+        }
+
+        for field, default_value in essential_fields.items():
+            if field not in validated_data or validated_data[field] is None:
+                validated_data[field] = default_value
+
+        # 제품 리스트 안전성 보장
+        for product_key in ['top_10_products', 'products']:
+            if product_key not in validated_data or not isinstance(validated_data[product_key], list):
+                validated_data[product_key] = []
+
+            # 제품 데이터 내부 필드 안전성 검증
+            safe_products = []
+            for product in validated_data[product_key]:
+                if isinstance(product, dict):
+                    safe_product = dict(product)
+                    # 필수 제품 필드 기본값
+                    product_defaults = {
+                        'product_title': 'Product Name Not Available',
+                        'discounted_price': 0,
+                        'original_price': 0,
+                        'product_rating': 0,
+                        'product_num_reviews': 0,
+                        'seller': 'Unknown Seller',
+                        'product_category': 'Unknown Category'
+                    }
+                    for field, default in product_defaults.items():
+                        if field not in safe_product or safe_product[field] is None:
+                            safe_product[field] = default
+                    safe_products.append(safe_product)
+            validated_data[product_key] = safe_products
+
+        # ML 예측 데이터 안전성 보장
+        if validated_data.get('has_ml_predictions'):
+            if 'prediction_summary' not in validated_data or not isinstance(validated_data['prediction_summary'], dict):
+                validated_data['prediction_summary'] = {
+                    'market_opportunity_score': 0,
+                    'average_predicted_price': 0,
+                    'average_actual_price': 0,
+                    'prediction_accuracy': 0,
+                    'total_predictions': 0
+                }
+
+            # ML 예측 요약 기본값 설정
+            summary_defaults = {
+                'market_opportunity_score': 0,
+                'average_predicted_price': 0,
+                'average_actual_price': 0,
+                'prediction_accuracy': 0,
+                'total_predictions': 0
+            }
+            for field, default in summary_defaults.items():
+                if field not in validated_data['prediction_summary'] or validated_data['prediction_summary'][field] is None:
+                    validated_data['prediction_summary'][field] = default
+
+            # ML 예측 리스트 안전성
+            if 'ml_predictions' not in validated_data or not isinstance(validated_data['ml_predictions'], list):
+                validated_data['ml_predictions'] = []
+
+        # 트렌드 데이터 안전성 보장
+        trend_fields = ['trending_opportunities', 'category_growth_analysis', 'brand_gap_analysis', 'channel_strategy_analysis']
+        for field in trend_fields:
+            if field not in validated_data or not isinstance(validated_data[field], dict):
+                validated_data[field] = {"error": f"{field} data not available"}
+
+        logger.info(f"✅ 리포트 데이터 구조 검증 완료: {keyword}")
+        return validated_data
+
+    except Exception as e:
+        logger.error(f"❌ 리포트 데이터 구조 검증 실패: {e}")
+        # 최소한의 안전한 데이터 구조 반환
+        return {
+            'keyword': keyword,
+            'error': f'Data validation failed: {str(e)}',
+            'total_products': 0,
+            'products_found': 0,
+            'products_saved': 0,
+            'analysis_date': datetime.now().strftime('%Y-%m-%d'),
+            'analysis_timestamp': datetime.now().isoformat(),
+            'difficulty_score': 0,
+            'competition_level': 'Unknown',
+            'has_trend_data': False,
+            'has_ml_predictions': False,
+            'top_10_products': [],
+            'products': [],
+            'prediction_summary': {
+                'market_opportunity_score': 0,
+                'average_predicted_price': 0,
+                'average_actual_price': 0,
+                'prediction_accuracy': 0,
+                'total_predictions': 0
+            },
+            'ml_predictions': [],
+            'trending_opportunities': {"error": "trending_opportunities data not available"},
+            'category_growth_analysis': {"error": "category_growth_analysis data not available"},
+            'brand_gap_analysis': {"error": "brand_gap_analysis data not available"},
+            'channel_strategy_analysis': {"error": "channel_strategy_analysis data not available"}
+        }
+
 async def generate_ml_predictions(products_data: list, keyword: str) -> dict:
     """🎯 제품 데이터를 기반으로 최적 가격 추천 결과 생성 (기존 ML 모델 활용)"""
     try:
-        ml_service = get_ml_serving_service()
+        # Validate input
+        if not products_data or not isinstance(products_data, list):
+            logger.warning("ML 예측: 제품 데이터가 없거나 잘못된 형식")
+            return {'has_ml_predictions': False, 'error': 'Invalid product data'}
+
+        try:
+            ml_service = get_ml_serving_service()
+        except Exception as service_e:
+            logger.error(f"ML 서비스 초기화 실패: {service_e}")
+            return {'has_ml_predictions': False, 'error': f'ML service init failed: {service_e}'}
 
         # 상위 5개 제품에 대해 최적 가격 추천 수행
         top_products = products_data[:5] if len(products_data) >= 5 else products_data
@@ -175,7 +311,7 @@ async def generate_ml_predictions(products_data: list, keyword: str) -> dict:
                                 'profit_margin': round(20 + variation * 10, 1),
                                 'roi_estimate': round(15 + variation * 5, 1)
                             },
-                            'pricing_strategy': f"{'프리미엄' if variation > 0.05 else ('경쟁적' if variation > -0.05 else '가격우위')} 전략 권장",
+                            'pricing_strategy': f"{'Premium' if variation > 0.05 else ('Competitive' if variation > -0.05 else 'Value')} strategy recommended",
                             'confidence_score': round(0.7 + random.uniform(0, 0.2), 2),
                             # 기존 비교 데이터 유지
                             'actual_price': actual_price,
@@ -280,32 +416,32 @@ def generate_recommendations(competition_result: dict, saturation_result: dict, 
 
     # 난이도 기반 추천
     if difficulty < 3:
-        recommendations.append("🟢 진입 난이도가 낮아 새로운 판매자에게 유리한 시장입니다.")
+        recommendations.append("🟢 Low entry difficulty market, favorable for new sellers.")
     elif difficulty < 6:
-        recommendations.append("🟡 중간 난이도 시장으로 차별화 전략이 필요합니다.")
+        recommendations.append("🟡 Medium difficulty market, differentiation strategy needed.")
     else:
-        recommendations.append("🔴 높은 경쟁 시장으로 신중한 접근이 필요합니다.")
+        recommendations.append("🔴 High competition market, cautious approach needed.")
 
     # 포화도 기반 추천
     if saturation < 30:
-        recommendations.append("📈 시장 포화도가 낮아 성장 잠재력이 있습니다.")
+        recommendations.append("📈 Low market saturation with growth potential.")
     elif saturation < 60:
-        recommendations.append("⚖️ 적정 수준의 시장 포화도를 보이고 있습니다.")
+        recommendations.append("⚖️ Moderate market saturation level.")
     else:
-        recommendations.append("📊 시장 포화도가 높아 틈새 전략을 고려하세요.")
+        recommendations.append("📊 High market saturation, consider niche strategies.")
 
     # 트렌드 기반 추천 (데이터가 있을 때만)
     if trend_data:
         if trend_data.get("trend_direction") == "rising":
-            recommendations.append("📈 상승 트렌드 시장으로 적극적인 진입을 고려하세요.")
+            recommendations.append("📈 Rising trend market, consider aggressive entry.")
         elif trend_data.get("trend_direction") == "falling":
-            recommendations.append("📉 하락 트렌드이므로 신중한 시장 진입이 필요합니다.")
+            recommendations.append("📉 Falling trend, cautious market entry needed.")
 
         market_heat = trend_data.get("market_heat", "")
         if market_heat == "hot":
-            recommendations.append("🔥 뜨거운 시장으로 빠른 행동이 유리합니다.")
+            recommendations.append("🔥 Hot market, quick action is advantageous.")
         elif market_heat == "cold":
-            recommendations.append("❄️ 관심도가 낮은 시장으로 마케팅 전략이 중요합니다.")
+            recommendations.append("❄️ Low interest market, marketing strategy is important.")
 
     return recommendations
 
@@ -424,13 +560,6 @@ async def initialize_background_services():
     # 캐시 워밍
     asyncio.create_task(warm_up_cache())
 
-    # 스크래핑 모니터링 시스템 시작
-    try:
-        monitor = get_scraping_monitor()
-        await monitor.start_monitoring()
-        print("✅ Scraping Monitoring System started.")
-    except Exception as e:
-        print(f"❌ Failed to start monitoring system: {e}")
 
 async def initialize_browser():
     """브라우저를 백그라운드에서 초기화"""
@@ -450,13 +579,6 @@ async def shutdown_event():
         kafka_manager.close()
         print("🔒 Kafka Manager closed.")
 
-    # 🔍 스크래핑 모니터링 시스템 종료
-    try:
-        monitor = get_scraping_monitor()
-        await monitor.stop_monitoring()
-        print("🔒 Scraping Monitoring System stopped.")
-    except Exception as e:
-        print(f"❌ Failed to stop monitoring system: {e}")
 
 # --- WebSocket 로직 (생략, 이전과 동일) ---
 async def send_progress(client_id: str, progress: int, message: str, status: str = "processing"):
@@ -573,7 +695,9 @@ async def get_report(request: Request, keyword: str):
         if cache_manager:
             cached_report = cache_manager.get_analysis_result(keyword)
             if cached_report:
-                return templates.TemplateResponse("report.html", {"request": request, "report": cached_report})
+                # 🛡️ Data structure safety validation for cached reports
+                validated_cached_report = validate_report_data_structure(cached_report, keyword)
+                return templates.TemplateResponse("advanced_report.html", {"request": request, "report": validated_cached_report})
         
         analyzer = get_analyzer()
 
@@ -674,15 +798,25 @@ async def get_report(request: Request, keyword: str):
                 top_products = report_data.get('top_10_products', report_data.get('products', []))
                 if top_products:
                     ml_predictions = await generate_ml_predictions(top_products, keyword)
-                    report_data.update(ml_predictions)
-                    print(f"✅ ML 예측 분석 완료 (예측 개수: {ml_predictions.get('prediction_summary', {}).get('total_predictions', 0)})")
+                    if ml_predictions and 'has_ml_predictions' in ml_predictions:
+                        report_data.update(ml_predictions)
+                        print(f"✅ ML 예측 분석 완료 (예측 개수: {ml_predictions.get('prediction_summary', {}).get('total_predictions', 0)})")
+                    else:
+                        print("⚠️ ML 예측 결과가 빈 상태입니다.")
+                        report_data['has_ml_predictions'] = False
+                        report_data['ml_error'] = "No ML prediction results"
                 else:
                     print("⚠️ ML 예측을 위한 제품 데이터가 없습니다.")
+                    report_data['has_ml_predictions'] = False
+                    report_data['ml_error'] = "No product data available"
             except Exception as ml_e:
                 logger.error(f"ML 예측 실패: {ml_e}")
                 report_data['has_ml_predictions'] = False
                 report_data['ml_error'] = str(ml_e)
                 print(f"⚠️ ML 예측 실패, 기본 리포트로 진행: {ml_e}")
+                # 전체 리포트가 실패하지 않도록 확실히 보장
+                import traceback
+                logger.error(f"ML 예측 상세 오류: {traceback.format_exc()}")
 
         except Exception as e:
             print(f"⚠️ 종합 분석 중 오류, 기본 분석으로 대체: {str(e)}")
@@ -699,9 +833,110 @@ async def get_report(request: Request, keyword: str):
         if cache_manager:
             cache_manager.set_analysis_result(keyword, report_data, ttl_hours=24)
 
-        return templates.TemplateResponse("report.html", {"request": request, "report": report_data})
+        # 🛡️ Data structure safety validation before template rendering
+        validated_report_data = validate_report_data_structure(report_data, keyword)
+
+        # 🔧 안전한 템플릿 데이터 생성 (JSON 직렬화 우회)
+        try:
+            import json
+            # 모든 데이터를 JSON 직렬화 가능한 형태로 변환
+            json_safe_data = json.loads(json.dumps(validated_report_data, default=str, ensure_ascii=False))
+            logger.info(f"✅ JSON 직렬화 성공: {keyword}")
+        except Exception as json_error:
+            logger.error(f"JSON 직렬화 실패: {json_error}")
+            return templates.TemplateResponse("error.html", {"request": request, "error_message": f"Data serialization failed: {json_error}"})
+
+        # 템플릿 데이터에서 % 문자 완전 제거
+        def remove_percent_chars(obj):
+            if isinstance(obj, str):
+                # % 문자와 문제가 될 수 있는 한국어 문자 처리
+                return obj.replace('%', ' percent').replace('％', ' percent')
+            elif isinstance(obj, dict):
+                return {key: remove_percent_chars(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [remove_percent_chars(item) for item in obj]
+            else:
+                return obj
+
+        # % 문자 완전 제거
+        safe_data = remove_percent_chars(json_safe_data)
+
+        # 추가 안전 조치: 모든 문자열을 repr로 안전하게 처리
+        import json
+        try:
+            # JSON 직렬화/역직렬화로 안전한 데이터 확보
+            json_str = json.dumps(safe_data, ensure_ascii=False, default=str)
+            # % 문자 한 번 더 제거
+            json_str = json_str.replace('%', ' percent').replace('％', ' percent')
+            safe_data = json.loads(json_str)
+        except Exception as json_error:
+            logger.error(f"JSON 안전화 실패: {json_error}")
+            # 기본 데이터로 폴백
+            safe_data = {
+                "keyword": keyword,
+                "error": "데이터 처리 중 오류 발생",
+                "recommendations": []
+            }
+
+        # 템플릿 컨텍스트를 간단하게 유지
+        template_context = {
+            "request": request,
+            "report": safe_data
+        }
+
+        # 디버깅을 위해 데이터 구조 로깅
+        logger.info(f"Report data keys: {list(safe_data.keys()) if isinstance(safe_data, dict) else 'Not a dict'}")
+        if isinstance(safe_data, dict) and 'trending_opportunities' in safe_data:
+            logger.info(f"Trending opportunities available: {safe_data['trending_opportunities'] is not None}")
+
+        return templates.TemplateResponse("advanced_report.html", template_context)
     except Exception as e:
+        import traceback
+        full_traceback = traceback.format_exc()
+        logger.error(f"Report generation failed: {full_traceback}")
+
+        # 추가 디버깅: 템플릿 컨텍스트 검사
+        try:
+            import json
+            logger.error(f"Template context keys: {list(template_context.keys())}")
+            if 'report_data' in template_context:
+                logger.error(f"Report data keys: {list(template_context['report_data'].keys())}")
+        except Exception as debug_e:
+            logger.error(f"Debug error: {debug_e}")
+
         return templates.TemplateResponse("error.html", {"request": request, "error_message": f"Error generating report: {e}"})
+
+@app.get("/test-report")
+async def test_report(request: Request, keyword: str = "test"):
+    """Simple test report with minimal data"""
+    try:
+        simple_data = {
+            "keyword": keyword,
+            "difficulty_score": 5,
+            "saturation": 50,
+            "avg_price": 25.0,
+            "products": [],
+            "recommendations": ["Test recommendation without any percent characters"],
+            "ml_predictions": {
+                "prediction_summary": {
+                    "total_predictions": 0,
+                    "market_opportunity_score": 50
+                }
+            },
+            "trending_opportunities": {"top_opportunities": []},
+            "category_growth_analysis": {"top_growth_categories": []},
+            "brand_gap_analysis": {"gap_opportunities": []},
+            "channel_strategy_analysis": {"recommended_channels": []}
+        }
+
+        return templates.TemplateResponse("report.html", {
+            "request": request,
+            "report": simple_data
+        })
+    except Exception as e:
+        import traceback
+        logger.error(f"Test report failed: {traceback.format_exc()}")
+        return templates.TemplateResponse("error.html", {"request": request, "error_message": f"Test report error: {e}"})
 
 @app.post("/api/cache/clear")
 async def clear_cache(payload: CacheClearRequest):
@@ -1987,494 +2222,7 @@ async def handle_critical_alert(alert: dict):
         logger.info("🔧 CPU 부하 감소 시도...")
         # 추가 최적화 로직 구현 가능
 
-# === 📊 스크래핑 모니터링 대시보드 엔드포인트 ===
-@app.get("/monitoring/dashboard")
-async def get_monitoring_dashboard():
-    """
-    📊 스크래핑 모니터링 대시보드 데이터
 
-    실시간 스크래핑 상태, 성능 메트릭, 품질 지표 등을 제공
-    """
-    try:
-        monitor = get_scraping_monitor()
-        dashboard_data = monitor.get_dashboard_data()
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "success",
-                "timestamp": datetime.now().isoformat(),
-                "data": dashboard_data
-            }
-        )
-
-    except Exception as e:
-        logger.error(f"❌ 모니터링 대시보드 데이터 조회 실패: {e}")
-        raise HTTPException(status_code=500, detail="모니터링 데이터 조회 중 오류가 발생했습니다.")
-
-@app.get("/monitoring/sessions")
-async def get_active_sessions():
-    """
-    📋 활성 스크래핑 세션 목록
-
-    현재 진행 중인 모든 스크래핑 세션의 상태를 반환
-    """
-    try:
-        monitor = get_scraping_monitor()
-
-        return {
-            "active_sessions": list(monitor.active_sessions.values()),
-            "total_active": len(monitor.active_sessions),
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 활성 세션 조회 실패: {e}")
-        raise HTTPException(status_code=500, detail="활성 세션 조회 중 오류가 발생했습니다.")
-
-@app.get("/monitoring/sessions/{session_id}")
-async def get_session_details(session_id: str):
-    """
-    🔍 특정 세션 상세 정보
-
-    세션 ID로 특정 스크래핑 세션의 상세 정보를 조회
-    """
-    try:
-        monitor = get_scraping_monitor()
-        session_details = monitor.get_session_details(session_id)
-
-        if not session_details:
-            raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
-
-        return {
-            "session": session_details,
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ 세션 상세 정보 조회 실패: {e}")
-        raise HTTPException(status_code=500, detail="세션 정보 조회 중 오류가 발생했습니다.")
-
-@app.get("/monitoring/alerts")
-async def get_monitoring_alerts():
-    """
-    🚨 모니터링 알림 목록
-
-    최근 발생한 모니터링 알림들을 반환
-    """
-    try:
-        monitor = get_scraping_monitor()
-
-        return {
-            "alerts": [
-                {
-                    "id": alert.id,
-                    "level": alert.level.value,
-                    "title": alert.title,
-                    "message": alert.message,
-                    "timestamp": alert.timestamp.isoformat(),
-                    "session_id": alert.session_id,
-                    "acknowledged": alert.acknowledged
-                }
-                for alert in monitor.alerts[-50:]  # 최근 50개
-            ],
-            "total_alerts": len(monitor.alerts),
-            "unacknowledged_count": len([a for a in monitor.alerts if not a.acknowledged]),
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 모니터링 알림 조회 실패: {e}")
-        raise HTTPException(status_code=500, detail="알림 조회 중 오류가 발생했습니다.")
-
-@app.post("/monitoring/alerts/{alert_id}/acknowledge")
-async def acknowledge_alert(alert_id: str):
-    """
-    ✅ 알림 확인 처리
-
-    특정 알림을 확인 처리하여 대시보드에서 제거
-    """
-    try:
-        monitor = get_scraping_monitor()
-        monitor.acknowledge_alert(alert_id)
-
-        return {
-            "status": "success",
-            "message": f"알림 {alert_id}를 확인 처리했습니다.",
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 알림 확인 처리 실패: {e}")
-        raise HTTPException(status_code=500, detail="알림 확인 처리 중 오류가 발생했습니다.")
-
-@app.get("/monitoring/stats")
-async def get_monitoring_stats():
-    """
-    📈 실시간 모니터링 통계
-
-    시스템 전반의 실시간 통계 정보를 제공
-    """
-    try:
-        monitor = get_scraping_monitor()
-
-        return {
-            "real_time_stats": monitor.real_time_stats,
-            "system_health": monitor._get_system_health(),
-            "performance_summary": {
-                "total_requests": len(monitor.performance_history),
-                "avg_success_rate": sum(m.success_rate for m in monitor.performance_history[-10:]) / max(1, len(monitor.performance_history[-10:])),
-                "recent_errors": len([a for a in monitor.alerts[-20:] if a.level in [AlertLevel.ERROR, AlertLevel.CRITICAL]])
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 모니터링 통계 조회 실패: {e}")
-        raise HTTPException(status_code=500, detail="통계 조회 중 오류가 발생했습니다.")
-
-@app.websocket("/monitoring/ws")
-async def monitoring_websocket(websocket: WebSocket):
-    """
-    🔄 실시간 모니터링 WebSocket
-
-    실시간으로 모니터링 데이터를 스트리밍
-    """
-    await websocket.accept()
-    monitor = get_scraping_monitor()
-    monitor.add_websocket_client(websocket)
-
-    try:
-        # 초기 데이터 전송
-        initial_data = {
-            "type": "initial_data",
-            "data": monitor.get_dashboard_data()
-        }
-        await websocket.send_text(json.dumps(initial_data, default=str))
-
-        # 연결 유지 (실제 업데이트는 백그라운드 태스크에서 처리)
-        while True:
-            # 클라이언트로부터 ping 메시지 수신 대기
-            try:
-                message = await websocket.receive_text()
-                if message == "ping":
-                    await websocket.send_text(json.dumps({"type": "pong"}))
-            except:
-                break
-
-    except Exception as e:
-        logger.error(f"WebSocket 연결 오류: {e}")
-    finally:
-        monitor.remove_websocket_client(websocket)
-
-# === 🎯 스크래핑 제어 엔드포인트 ===
-@app.post("/monitoring/scraping/start")
-async def start_scraping_session(
-    keyword: str = Form(...),
-    max_products: int = Form(20)
-):
-    """
-    🚀 스크래핑 세션 시작
-
-    새로운 Amazon 스크래핑 세션을 시작
-    """
-    try:
-        monitor = get_scraping_monitor()
-
-        # 세션 ID 생성
-        session_id = f"session_{int(time.time())}"
-
-        # 세션 시작
-        session = monitor.start_session(session_id, keyword)
-
-        # 백그라운드에서 실제 스크래핑 시작 (비동기)
-        asyncio.create_task(_perform_scraping(session_id, keyword, max_products))
-
-        return {
-            "status": "success",
-            "session_id": session_id,
-            "keyword": keyword,
-            "max_products": max_products,
-            "message": f"키워드 '{keyword}'로 스크래핑 세션이 시작되었습니다.",
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 스크래핑 세션 시작 실패: {e}")
-        raise HTTPException(status_code=500, detail="스크래핑 세션 시작 중 오류가 발생했습니다.")
-
-@app.post("/monitoring/scraping/stop/{session_id}")
-async def stop_scraping_session(session_id: str):
-    """
-    🛑 스크래핑 세션 중지
-
-    진행 중인 스크래핑 세션을 중지
-    """
-    try:
-        monitor = get_scraping_monitor()
-
-        if session_id not in monitor.active_sessions:
-            raise HTTPException(status_code=404, detail="활성 세션을 찾을 수 없습니다.")
-
-        # 세션 상태를 PAUSED로 변경
-        session = monitor.active_sessions[session_id]
-        session.status = ScrapingStatus.PAUSED
-
-        return {
-            "status": "success",
-            "session_id": session_id,
-            "message": f"세션 {session_id}가 일시 중지되었습니다.",
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ 스크래핑 세션 중지 실패: {e}")
-        raise HTTPException(status_code=500, detail="세션 중지 중 오류가 발생했습니다.")
-
-async def _perform_scraping(session_id: str, keyword: str, max_products: int):
-    """
-    실제 스크래핑 수행 (백그라운드 태스크)
-    """
-    monitor = get_scraping_monitor()
-
-    try:
-        # 스크래핑 로직 시뮬레이션 (실제로는 Amazon 스크래퍼 v2 사용)
-        for i in range(max_products):
-            # 세션 상태 확인 (중지되었는지)
-            if session_id in monitor.active_sessions:
-                session = monitor.active_sessions[session_id]
-                if session.status == ScrapingStatus.PAUSED:
-                    break
-
-                # 진행상황 업데이트
-                monitor.update_session_progress(
-                    session_id,
-                    products_found=i + 1,
-                    products_processed=i + 1,
-                    products_valid=i,
-                    current_page=(i // 10) + 1
-                )
-
-                # 스크래핑 딜레이 시뮬레이션
-                await asyncio.sleep(2)
-            else:
-                break
-
-        # 세션 완료
-        monitor.complete_session(session_id, ScrapingStatus.COMPLETED)
-
-    except Exception as e:
-        logger.error(f"스크래핑 세션 {session_id} 실행 중 오류: {e}")
-        monitor.complete_session(session_id, ScrapingStatus.ERROR)
-
-# === 🎨 모니터링 대시보드 UI ===
-@app.get("/monitoring", response_class=HTMLResponse)
-async def monitoring_dashboard_ui(request: Request):
-    """
-    📊 모니터링 대시보드 웹 UI
-
-    실시간 스크래핑 모니터링을 위한 웹 인터페이스
-    """
-    dashboard_html = """
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Market Insights Pro - 스크래핑 모니터링</title>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f6fa; }
-            .header { background: #2c3e50; color: white; padding: 1rem; }
-            .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
-            .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-            .stat-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .stat-value { font-size: 2rem; font-weight: bold; color: #3498db; }
-            .stat-label { color: #7f8c8d; margin-top: 0.5rem; }
-            .chart-container { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem; }
-            .alerts-container { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .alert-item { padding: 1rem; border-left: 4px solid #e74c3c; background: #fdf2f2; margin-bottom: 1rem; border-radius: 4px; }
-            .alert-info { border-left-color: #3498db; background: #f0f8ff; }
-            .alert-warning { border-left-color: #f39c12; background: #fef9e7; }
-            .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
-            .status-running { background: #27ae60; }
-            .status-error { background: #e74c3c; }
-            .status-completed { background: #95a5a6; }
-            .refresh-btn { background: #3498db; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>📊 Market Insights Pro - 스크래핑 모니터링</h1>
-            <button class="refresh-btn" onclick="loadDashboardData()">새로고침</button>
-        </div>
-
-        <div class="container">
-            <div class="stats-grid" id="statsGrid">
-                <!-- 통계 카드들이 여기에 동적으로 추가됩니다 -->
-            </div>
-
-            <div class="chart-container">
-                <h3>📈 성능 메트릭</h3>
-                <canvas id="performanceChart" width="400" height="100"></canvas>
-            </div>
-
-            <div class="alerts-container">
-                <h3>🚨 최근 알림</h3>
-                <div id="alertsList">
-                    <!-- 알림들이 여기에 동적으로 추가됩니다 -->
-                </div>
-            </div>
-        </div>
-
-        <script>
-            let performanceChart = null;
-            let ws = null;
-
-            // 페이지 로드 시 초기화
-            document.addEventListener('DOMContentLoaded', function() {
-                loadDashboardData();
-                connectWebSocket();
-
-                // 30초마다 자동 새로고침
-                setInterval(loadDashboardData, 30000);
-            });
-
-            // 대시보드 데이터 로드
-            async function loadDashboardData() {
-                try {
-                    const response = await fetch('/monitoring/dashboard');
-                    const result = await response.json();
-
-                    if (result.status === 'success') {
-                        updateStats(result.data.overview);
-                        updatePerformanceChart(result.data.performance_metrics);
-                        updateAlerts(result.data.alerts);
-                    }
-                } catch (error) {
-                    console.error('대시보드 데이터 로드 실패:', error);
-                }
-            }
-
-            // 통계 업데이트
-            function updateStats(stats) {
-                const statsGrid = document.getElementById('statsGrid');
-                statsGrid.innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.active_sessions || 0}</div>
-                        <div class="stat-label">활성 세션</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.total_products || 0}</div>
-                        <div class="stat-label">총 수집 상품</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.products_today || 0}</div>
-                        <div class="stat-label">오늘 수집</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${(stats.average_quality_score || 0).toFixed(1)}%</div>
-                        <div class="stat-label">평균 품질 점수</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${(stats.uptime_hours || 0).toFixed(1)}h</div>
-                        <div class="stat-label">시스템 가동시간</div>
-                    </div>
-                `;
-            }
-
-            // 성능 차트 업데이트
-            function updatePerformanceChart(metrics) {
-                const ctx = document.getElementById('performanceChart').getContext('2d');
-
-                if (performanceChart) {
-                    performanceChart.destroy();
-                }
-
-                const labels = metrics.map(m => new Date(m.timestamp).toLocaleTimeString());
-                const successRates = metrics.map(m => m.success_rate || 0);
-
-                performanceChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: '성공률 (%)',
-                            data: successRates,
-                            borderColor: '#3498db',
-                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                max: 100
-                            }
-                        }
-                    }
-                });
-            }
-
-            // 알림 목록 업데이트
-            function updateAlerts(alerts) {
-                const alertsList = document.getElementById('alertsList');
-
-                if (!alerts || alerts.length === 0) {
-                    alertsList.innerHTML = '<p>최근 알림이 없습니다.</p>';
-                    return;
-                }
-
-                alertsList.innerHTML = alerts.slice(-10).map(alert => `
-                    <div class="alert-item alert-${alert.level}">
-                        <strong>${alert.title}</strong>
-                        <p>${alert.message}</p>
-                        <small>${new Date(alert.timestamp).toLocaleString()}</small>
-                    </div>
-                `).join('');
-            }
-
-            // WebSocket 연결
-            function connectWebSocket() {
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${protocol}//${window.location.host}/monitoring/ws`;
-
-                ws = new WebSocket(wsUrl);
-
-                ws.onmessage = function(event) {
-                    const data = JSON.parse(event.data);
-
-                    if (data.type === 'status_update') {
-                        updateStats(data.stats);
-                        updateAlerts(data.recent_alerts);
-                    }
-                };
-
-                ws.onclose = function() {
-                    // 5초 후 재연결 시도
-                    setTimeout(connectWebSocket, 5000);
-                };
-
-                // 30초마다 ping 전송
-                setInterval(() => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send('ping');
-                    }
-                }, 30000);
-            }
-        </script>
-    </body>
-    </html>
-    """
-
-    return HTMLResponse(content=dashboard_html)
 
 
 # === 🤖 ML 예측 API ===
@@ -2499,32 +2247,12 @@ async def predict_price(request: PricePredictionRequest):
         metrics_collector = get_metrics_collector()
         metrics_collector.record_prediction_request("price", result.processing_time_ms)
 
-        # 모니터링 이벤트 기록
-        monitoring_service = get_ml_monitoring_service()
-        monitoring_service.record_prediction_event(
-            model_name="price_recommender",
-            success=success,
-            latency_ms=latency_ms,
-            features={
-                **request.model_dump(),
-                "recommended_price": result.recommended_price,
-                "confidence_score": result.confidence_score
-            }
-        )
 
         return result
 
     except Exception as e:
         logger.error(f"❌ 가격 예측 실패: {e}")
 
-        # 실패 이벤트도 모니터링에 기록
-        monitoring_service = get_ml_monitoring_service()
-        monitoring_service.record_prediction_event(
-            model_name="price_recommender",
-            success=False,
-            latency_ms=latency_ms,
-            features=request.model_dump()
-        )
 
         raise HTTPException(status_code=500, detail=f"가격 추천 중 오류가 발생했습니다: {str(e)}")
 
@@ -2608,156 +2336,6 @@ async def ml_health_check():
         raise HTTPException(status_code=503, detail=f"ML 서비스 상태 확인 실패: {str(e)}")
 
 
-# === 📊 ML 모니터링 API ===
-@app.get("/api/ml/monitoring/health/{model_name}", response_model=ModelHealthReport)
-async def get_model_health_report(model_name: str):
-    """
-    📋 모델 헬스 리포트 조회
-
-    특정 모델의 종합적인 건강 상태 리포트를 제공합니다.
-    """
-    try:
-        monitoring_service = get_ml_monitoring_service()
-        report = await monitoring_service.generate_health_report(model_name)
-        return report
-
-    except Exception as e:
-        logger.error(f"❌ 헬스 리포트 생성 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"헬스 리포트 생성 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.get("/api/ml/monitoring/dashboard")
-async def get_ml_monitoring_dashboard():
-    """
-    🎛️ ML 모니터링 대시보드 데이터
-
-    전체 ML 시스템의 모니터링 대시보드 데이터를 제공합니다.
-    """
-    try:
-        monitoring_service = get_ml_monitoring_service()
-        dashboard_data = monitoring_service.get_monitoring_dashboard_data()
-
-        return {
-            "status": "success",
-            "data": dashboard_data,
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 대시보드 데이터 조회 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"대시보드 데이터 조회 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.get("/api/ml/monitoring/alerts")
-async def get_ml_alerts(limit: int = 50):
-    """
-    🚨 ML 시스템 알림 조회
-
-    최근 ML 시스템 알림들을 조회합니다.
-    """
-    try:
-        monitoring_service = get_ml_monitoring_service()
-        alerts = list(monitoring_service.alerts)[-limit:]
-
-        # 직렬화 가능한 형태로 변환
-        serialized_alerts = []
-        for alert in alerts:
-            serialized_alerts.append({
-                "alert_id": alert.alert_id,
-                "level": alert.level.value,
-                "title": alert.title,
-                "description": alert.description,
-                "metric_name": alert.metric_name,
-                "current_value": alert.current_value,
-                "expected_range": alert.expected_range,
-                "timestamp": alert.timestamp.isoformat(),
-                "model_name": alert.model_name
-            })
-
-        return {
-            "status": "success",
-            "alerts": serialized_alerts,
-            "total": len(serialized_alerts)
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 알림 조회 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"알림 조회 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.post("/api/ml/monitoring/start")
-async def start_ml_monitoring():
-    """
-    🟢 ML 모니터링 시작
-
-    ML 모니터링 서비스를 시작합니다.
-    """
-    try:
-        monitoring_service = get_ml_monitoring_service()
-        monitoring_service.start_monitoring()
-
-        return {
-            "status": "success",
-            "message": "ML 모니터링이 시작되었습니다.",
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 모니터링 시작 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"모니터링 시작 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.post("/api/ml/monitoring/stop")
-async def stop_ml_monitoring():
-    """
-    🔴 ML 모니터링 중지
-
-    ML 모니터링 서비스를 중지합니다.
-    """
-    try:
-        monitoring_service = get_ml_monitoring_service()
-        monitoring_service.stop_monitoring()
-
-        return {
-            "status": "success",
-            "message": "ML 모니터링이 중지되었습니다.",
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 모니터링 중지 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"모니터링 중지 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.post("/api/ml/monitoring/record-prediction")
-async def record_prediction_event(
-    model_name: str,
-    success: bool,
-    latency_ms: float,
-    features: Optional[Dict[str, Any]] = None
-):
-    """
-    📝 예측 이벤트 기록
-
-    ML 예측 이벤트를 모니터링 시스템에 기록합니다.
-    """
-    try:
-        monitoring_service = get_ml_monitoring_service()
-        monitoring_service.record_prediction_event(
-            model_name=model_name,
-            success=success,
-            latency_ms=latency_ms,
-            features=features or {}
-        )
-
-        return {
-            "status": "success",
-            "message": "예측 이벤트가 기록되었습니다."
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 예측 이벤트 기록 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"예측 이벤트 기록 중 오류가 발생했습니다: {str(e)}")
 
 
 # === 🎛️ 시스템 관리 API ===
@@ -2946,273 +2524,6 @@ async def run_performance_benchmark():
         raise HTTPException(status_code=500, detail=f"성능 벤치마크 중 오류가 발생했습니다: {str(e)}")
 
 
-# =========================
-# 🔥 Phase 3: 실시간 모니터링 시스템 API
-# =========================
-
-@app.post("/api/monitoring/trend-changes")
-async def analyze_trend_changes_endpoint(request: Request):
-    """
-    📈 트렌드 급변 감지 분석
-
-    지정된 키워드들의 트렌드 변화를 실시간으로 모니터링하고 급변 키워드를 감지합니다.
-    """
-    try:
-        data = await request.json()
-        keywords = data.get('keywords', [])
-        monitoring_period = data.get('monitoring_period', 7)
-
-        if not keywords:
-            raise HTTPException(status_code=400, detail="키워드 리스트가 필요합니다")
-
-        print(f"🔍 트렌드 급변 감지 시작: {len(keywords)}개 키워드, {monitoring_period}일 주기")
-
-        analyzer = get_analyzer()
-        trend_analysis = await analyzer.analyze_trend_changes(keywords, monitoring_period)
-
-        print(f"✅ 트렌드 분석 완료: {trend_analysis['significant_changes_count']}개 유의미한 변화 감지")
-
-        return {
-            "status": "success",
-            "message": f"{len(keywords)}개 키워드의 트렌드 변화 분석이 완료되었습니다",
-            "analysis": trend_analysis,
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ 트렌드 변화 분석 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"트렌드 변화 분석 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.post("/api/monitoring/competitor-monitor")
-async def monitor_competitors_endpoint(request: Request):
-    """
-    🏢 경쟁사 동향 모니터링
-
-    특정 키워드의 경쟁사 동향을 모니터링하고 가격 변화, 신규 진입자, 점유율 변화를 추적합니다.
-    """
-    try:
-        data = await request.json()
-        base_keyword = data.get('keyword', '')
-        past_products = data.get('past_products', None)  # 이전 상품 데이터 (선택사항)
-
-        if not base_keyword:
-            raise HTTPException(status_code=400, detail="모니터링할 키워드가 필요합니다")
-
-        print(f"🏢 경쟁사 모니터링 시작: {base_keyword}")
-
-        analyzer = get_analyzer()
-        competitor_analysis = await analyzer.monitor_competitors(base_keyword, past_products)
-
-        print(f"✅ 경쟁사 모니터링 완료: {competitor_analysis['total_competitors']}개 경쟁사, {len(competitor_analysis['alerts'])}개 알림")
-
-        return {
-            "status": "success",
-            "message": f"'{base_keyword}' 키워드의 경쟁사 모니터링이 완료되었습니다",
-            "analysis": competitor_analysis,
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ 경쟁사 모니터링 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"경쟁사 모니터링 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.get("/api/monitoring/alerts/{keyword}")
-async def get_monitoring_alerts(keyword: str):
-    """
-    🚨 모니터링 알림 조회
-
-    특정 키워드에 대한 최신 모니터링 알림을 조회합니다.
-    """
-    try:
-        print(f"🚨 모니터링 알림 조회: {keyword}")
-
-        analyzer = get_analyzer()
-
-        # 트렌드 변화 분석 (단일 키워드)
-        trend_analysis = await analyzer.analyze_trend_changes([keyword], monitoring_period=7)
-
-        # 경쟁사 모니터링
-        competitor_analysis = await analyzer.monitor_competitors(keyword)
-
-        # 알림 생성
-        alerts = []
-
-        # 트렌드 급변 알림
-        for trend in trend_analysis.get('rising_trends', []) + trend_analysis.get('falling_trends', []):
-            if trend['severity'] in ['critical', 'high']:
-                alerts.append({
-                    'type': 'trend_change',
-                    'severity': trend['severity'],
-                    'keyword': trend['keyword'],
-                    'message': f"{trend['keyword']} 키워드가 {trend['change_type']} 중입니다 ({trend['change_percentage']:+.1f}%)",
-                    'details': trend,
-                    'timestamp': trend['analysis_timestamp']
-                })
-
-        # 경쟁사 알림 추가
-        alerts.extend(competitor_analysis.get('alerts', []))
-
-        # 중요도순 정렬
-        severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
-        alerts.sort(key=lambda x: severity_order.get(x.get('severity', 'low'), 3))
-
-        print(f"✅ 알림 조회 완료: {len(alerts)}개 알림 발견")
-
-        return {
-            "status": "success",
-            "keyword": keyword,
-            "alerts": alerts[:20],  # 상위 20개 알림
-            "alert_summary": {
-                "total_alerts": len(alerts),
-                "critical_alerts": len([a for a in alerts if a.get('severity') == 'critical']),
-                "high_alerts": len([a for a in alerts if a.get('severity') == 'high']),
-                "trend_alerts": len([a for a in alerts if a.get('type') == 'trend_change']),
-                "competitor_alerts": len([a for a in alerts if a.get('type') != 'trend_change'])
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 모니터링 알림 조회 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"모니터링 알림 조회 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.get("/api/monitoring/dashboard/{keyword}")
-async def get_monitoring_dashboard(keyword: str):
-    """
-    📊 모니터링 대시보드 데이터
-
-    특정 키워드에 대한 종합 모니터링 대시보드 데이터를 제공합니다.
-    """
-    try:
-        print(f"📊 모니터링 대시보드 데이터 수집: {keyword}")
-
-        analyzer = get_analyzer()
-
-        # 동시 실행으로 성능 최적화
-        import asyncio
-
-        # 병렬 분석 실행
-        trend_task = asyncio.create_task(analyzer.analyze_trend_changes([keyword], monitoring_period=7))
-        competitor_task = asyncio.create_task(analyzer.monitor_competitors(keyword))
-
-        # 결과 대기
-        trend_analysis, competitor_analysis = await asyncio.gather(trend_task, competitor_task)
-
-        # 대시보드 메트릭 생성
-        dashboard_metrics = {
-            'keyword': keyword,
-            'trend_status': {
-                'current_trend': trend_analysis['trend_changes'][0] if trend_analysis['trend_changes'] else None,
-                'volatility_index': trend_analysis['analysis_summary']['volatility_index'],
-                'significant_changes': trend_analysis['significant_changes_count']
-            },
-            'competitor_status': {
-                'total_competitors': competitor_analysis['total_competitors'],
-                'new_entrants': competitor_analysis['analysis_summary']['new_entrants_count'],
-                'price_changes': competitor_analysis['analysis_summary']['significant_price_changes'],
-                'market_volatility': competitor_analysis['analysis_summary']['market_volatility'],
-                'competition_trend': competitor_analysis['analysis_summary']['competition_trend']
-            },
-            'alerts_summary': {
-                'total_alerts': len(competitor_analysis['alerts']),
-                'critical_alerts': len([a for a in competitor_analysis['alerts'] if a.get('severity') == 'high']),
-                'recent_alerts': competitor_analysis['alerts'][:5]
-            },
-            'market_health': {
-                'status': 'stable',  # 기본값
-                'risk_level': 'low'   # 기본값
-            }
-        }
-
-        # 시장 건강도 평가
-        if trend_analysis['analysis_summary']['volatility_index'] > 30:
-            dashboard_metrics['market_health']['status'] = 'volatile'
-            dashboard_metrics['market_health']['risk_level'] = 'high'
-        elif competitor_analysis['analysis_summary']['new_entrants_count'] > 10:
-            dashboard_metrics['market_health']['status'] = 'active'
-            dashboard_metrics['market_health']['risk_level'] = 'medium'
-
-        print(f"✅ 대시보드 데이터 준비 완료: 변동성 지수 {dashboard_metrics['trend_status']['volatility_index']}")
-
-        return {
-            "status": "success",
-            "message": f"'{keyword}' 모니터링 대시보드 데이터가 준비되었습니다",
-            "dashboard": dashboard_metrics,
-            "detailed_analysis": {
-                "trend_analysis": trend_analysis,
-                "competitor_analysis": competitor_analysis
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except Exception as e:
-        logger.error(f"❌ 모니터링 대시보드 데이터 수집 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"모니터링 대시보드 데이터 수집 중 오류가 발생했습니다: {str(e)}")
-
-
-@app.get("/monitoring")
-async def monitoring_page(request: Request):
-    """
-    🔥 실시간 모니터링 대시보드 페이지
-
-    실시간 트렌드 변화와 경쟁사 동향을 모니터링할 수 있는 대시보드 페이지를 제공합니다.
-    """
-    return templates.TemplateResponse("monitoring.html", {"request": request})
-
-
-@app.post("/api/monitoring/watchlist")
-async def manage_monitoring_watchlist(request: Request):
-    """
-    📝 모니터링 워치리스트 관리
-
-    모니터링할 키워드 목록을 추가, 수정, 삭제합니다.
-    """
-    try:
-        data = await request.json()
-        action = data.get('action', 'add')  # add, remove, list
-        keywords = data.get('keywords', [])
-
-        # 간단한 인메모리 워치리스트 (실제 구현에서는 DB 사용)
-        if not hasattr(app.state, 'watchlist'):
-            app.state.watchlist = set()
-
-        if action == 'add':
-            app.state.watchlist.update(keywords)
-            message = f"{len(keywords)}개 키워드가 워치리스트에 추가되었습니다"
-
-        elif action == 'remove':
-            app.state.watchlist.difference_update(keywords)
-            message = f"{len(keywords)}개 키워드가 워치리스트에서 제거되었습니다"
-
-        elif action == 'list':
-            message = f"현재 워치리스트에 {len(app.state.watchlist)}개 키워드가 등록되어 있습니다"
-
-        else:
-            raise HTTPException(status_code=400, detail="지원되지 않는 액션입니다")
-
-        print(f"📝 워치리스트 관리: {action} - {len(keywords)}개 키워드")
-
-        return {
-            "status": "success",
-            "message": message,
-            "action": action,
-            "watchlist": list(app.state.watchlist),
-            "watchlist_count": len(app.state.watchlist),
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ 워치리스트 관리 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"워치리스트 관리 중 오류가 발생했습니다: {str(e)}")
 
 
 if __name__ == "__main__":
