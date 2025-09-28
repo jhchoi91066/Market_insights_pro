@@ -1,4 +1,4 @@
-# 🚀 Market Insights Pro - 네이버 기반 고급 시장 분석 플랫폼
+# Market Insights Pro - 네이버 기반 고급 시장 분석 플랫폼
 
 **Naver Shopping + DataLab API 기반 실시간 시장 분석 및 ML 예측 시스템**
 
