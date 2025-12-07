@@ -45,6 +45,10 @@ Market Insights Pro는 **네이버 쇼핑 + 네이버 DataLab API**를 활용한
 - **다크모드**: 완전 지원
 - **실시간 알림**: WebSocket 기반 라이브 업데이트
 
+## PREVIEW
+
+https://github.com/user-attachments/assets/bb92d241-7aa7-4301-80cd-7ed5432ed6e6
+
 ## 🏗️ 시스템 아키텍처
 
 ### 마이크로서비스 구조 (36개 모듈)
